@@ -176,7 +176,9 @@ viajes
   - id_usuario (FK → usuarios, @ManyToOne)
   - fecha_ingreso (date)
   - destino (varchar 100)
-  - pais_origen (varchar 100)
+  - pais_origen (varchar 100, nullable) — país de origen real del pasajero
+  - paso_fronterizo (varchar 100, nullable) — paso fronterizo elegido
+    (Los Libertadores, Chungará, Pino Hachado, Pehuenche)
   - motivo_viaje (varchar 200)
   - estado (enum: PENDIENTE, APROBADO, RECHAZADO, default PENDIENTE)
   - created_at (timestamp, @CreationTimestamp)
@@ -401,14 +403,45 @@ Variables de entorno en .env:
    JwtAuthenticationFilter, CorsConfig, AuthController, AuthService,
    DTOs, AuthContext, Login.tsx pasajero y LoginFuncionario.tsx.
    Tailwind v3 instalado y configurado con colores gov-* centralizados.
-⏳ Sesión 4 (Sonnet): Módulo de viaje — ViajeController, ViajeService,
-   RegistroViaje.tsx con flujo: viaje → menores → vehículo → SAG
+✅ Sesión 4 (Sonnet): Módulo de viaje — ViajeController, ViajeService,
+   RegistroViaje.tsx con flujo: viaje → menores → vehículo → SAG.
+   Ver "DECISIONES DE SESIÓN 4" para detalles a reutilizar en sesiones
+   posteriores (QR, fiscalización).
 ⏳ Sesión 5 (Sonnet): Generación de QR — QrService con ZXing,
    QrController, EstadoTramite.tsx con visualización del QR
 ⏳ Sesión 6 (Opus): Vista del funcionario — FiscalizacionController,
    FiscalizacionQr.tsx con panel consolidado separado por rol
 ⏳ Sesión 7 (Haiku): Polish — identidad visual gobierno Chile,
    banner DuocUC, responsive, pruebas extremo a extremo
+
+---
+
+## DECISIONES DE SESIÓN 4 (Módulo de viaje)
+
+- El selector "Paso Fronterizo" de RegistroViaje.tsx (Los Libertadores,
+  Chungará, Pino Hachado, Pehuenche) se guarda en la columna
+  `paso_fronterizo` (varchar 100, nullable). DTO: `ViajeRequest.pasoFronterizo`
+  (obligatorio). La columna `pais_origen` queda separada y reservada para
+  el país de origen real del pasajero (Chile, Argentina, etc.); por ahora
+  es opcional (`@Size` sin `@NotBlank`) porque ninguna pantalla la captura
+  todavía.
+- Flujo multi-paso (RegistroViaje → RegistroVehiculo → DeclaracionSag)
+  comparte el expediente activo vía `localStorage['sffe_id_viaje_activo']`
+  (helpers `getIdViajeActivo`/`setIdViajeActivo` en viajeService.ts).
+  Dashboard también lo usa para elegir qué viaje mostrar.
+- Declaración SAG: las 3 preguntas booleanas (vegetal/animal/alimentos)
+  más el campo `detalle` se serializan como JSON dentro de la columna
+  `productos` (TEXT). `declara_productos = vegetal || animal || alimentos`.
+- `POST /api/viajes/{id}/vehiculo` y `/sag` son upsert sobre relaciones
+  1:1 (buscan por `id_viaje`, crean si no existen, actualizan si existen).
+- Toda operación sobre un viaje valida que `id_usuario` del expediente
+  coincida con el usuario del JWT (`Authentication.getName()` = RUT);
+  si no existe el viaje → 404, si no es del usuario → 403
+  (`ViajeException` + `GlobalExceptionHandler`).
+- Módulo "Mi Código QR" del Dashboard queda deshabilitado
+  ("próximamente") hasta la Sesión 5. No se creó BottomNav ni
+  Perfil/EstadoTramite todavía — quedan pendientes para sesiones
+  posteriores cuando esas rutas existan.
 
 ---
 

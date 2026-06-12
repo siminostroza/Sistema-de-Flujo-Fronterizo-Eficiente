@@ -24,6 +24,13 @@ public class GlobalExceptionHandler {
                 .body(cuerpo(ex.getStatus(), ex.getMessage()));
     }
 
+    /** Errores de negocio sobre expedientes de viaje con estado HTTP propio (RF02, RF04). */
+    @ExceptionHandler(ViajeException.class)
+    public ResponseEntity<Map<String, Object>> handleViaje(ViajeException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
     /** Errores de validación de los DTO (@Valid). Devuelve el primer mensaje. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(

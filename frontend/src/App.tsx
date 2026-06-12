@@ -3,6 +3,9 @@ import type { ReactNode } from 'react'
 import Login from './pages/Login'
 import LoginFuncionario from './pages/LoginFuncionario'
 import Dashboard from './pages/Dashboard'
+import RegistroViaje from './pages/RegistroViaje'
+import RegistroVehiculo from './pages/RegistroVehiculo'
+import DeclaracionSag from './pages/DeclaracionSag'
 import Fiscalizacion from './pages/Fiscalizacion'
 import { useAuth, type Rol } from './context/AuthContext'
 
@@ -61,6 +64,30 @@ function App() {
         element={
           <RutaProtegida roles={['PASAJERO']}>
             <Dashboard />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/registro-viaje"
+        element={
+          <RutaProtegida roles={['PASAJERO']}>
+            <RegistroViaje />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/registro-vehiculo"
+        element={
+          <RutaProtegida roles={['PASAJERO']}>
+            <RegistroVehiculo />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/declaracion-sag"
+        element={
+          <RutaProtegida roles={['PASAJERO']}>
+            <DeclaracionSag />
           </RutaProtegida>
         }
       />
