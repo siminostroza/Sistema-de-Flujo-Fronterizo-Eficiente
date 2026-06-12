@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFFE — Portal del Pasajero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ============================================================
+   PALETA OFICIAL GOBIERNO DE CHILE
+   Fuente: framework.digital.gob.cl/colors.html
+   ============================================================ */
+:root {
+  --gov-primary:       #006FB3;
+  --gov-primary-dark:  #004A80;
+  --gov-primary-light: #E6F3FB;
+  --gov-secondary:     #FE6565;
+  --gov-tertiary:      #0A132D;
+  --gov-accent:        #A8B7C7;
+  --gov-neutral:       #EEEEEE;
+  --gov-gray-a:        #4A4A4A;
+  --gov-gray-b:        #8A8A8A;
+  --gov-black:         #111111;
+  --gov-white:         #FFFFFF;
+  --gov-green:         #2D717C;
+  --estado-pendiente-bg:  #FFF8E1;
+  --estado-pendiente-txt: #795500;
+  --estado-aprobado-bg:   #E8F5E9;
+  --estado-aprobado-txt:  #1B5E20;
+  --estado-rechazado-bg:  #FFEBEE;
+  --estado-rechazado-txt: #B71C1C;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow:    0 2px 8px rgba(0,0,0,.10);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.13);
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body { background:#F0F4F8; color:var(--gov-black); min-height:100vh; }
+
+/* ---- Bandas superiores ---- */
+.gov-topbar {
+  background:var(--gov-tertiary); color:white;
+  padding:6px 20px; font-size:12px; font-weight:500;
+  display:flex; align-items:center; gap:8px;
+}
+.gov-topbar .sep { color:var(--gov-accent); margin:0 4px; }
+.duoc-banner {
+  background:#FFF8E1; border-bottom:2px solid #FFD54F;
+  padding:6px 20px; text-align:center; font-size:12px; color:#5D4037; font-weight:500;
+}
+.duoc-banner strong { color:#E65100; }
+
+/* ---- Header ---- */
+.main-header {
+  background:linear-gradient(135deg, var(--gov-tertiary) 0%, var(--gov-primary) 100%);
+  color:white; padding:16px 20px; position:sticky; top:0; z-index:100;
+  box-shadow:var(--shadow-lg);
+}
+.header-inner { display:flex; align-items:center; justify-content:space-between; }
+.logo-area { display:flex; align-items:center; gap:12px; }
+.logo-icon {
+  width:40px; height:40px; background:rgba(255,255,255,.15);
+  border-radius:var(--radius-md); display:flex; align-items:center;
+  justify-content:center; font-size:20px;
+}
+.header-title { font-size:16px; font-weight:700; }
+.header-subtitle { font-size:11px; opacity:.8; }
+.header-user { font-size:12px; opacity:.9; text-align:right; }
+.header-user strong { display:block; font-size:13px; }
+
+/* ---- Layout mobile-first con bottom nav ---- */
+.page-wrap { padding:16px 16px 80px; max-width:520px; margin:auto; }
+
+/* ---- Pantallas ---- */
+.screen { display:none; animation:fadeIn .25s ease; }
+.screen.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+.page-title    { font-size:20px; font-weight:700; color:var(--gov-tertiary); margin-bottom:4px; }
+.page-subtitle { font-size:13px; color:var(--gov-gray-b); margin-bottom:18px; }
+
+/* ---- Cards ---- */
+.card { background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:20px; margin-bottom:14px; }
+.card-title { font-size:14px; font-weight:700; color:var(--gov-black); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.card-title i { color:var(--gov-primary); font-size:13px; }
+
+/* ---- Formularios ---- */
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:11px; font-weight:700; color:var(--gov-gray-a); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width:100%; padding:11px 13px; border:1.5px solid var(--gov-neutral);
+  border-radius:var(--radius-md); font-size:14px; color:var(--gov-black);
+  background:#FAFBFC; outline:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color:var(--gov-primary);
+  box-shadow:0 0 0 3px rgba(0,111,179,.12);
+  background:white;
+}
+.form-group textarea { resize:vertical; min-height:72px; }
+
+/* ---- Botones ---- */
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:12px 20px; border-radius:var(--radius-md); font-size:14px;
+  font-weight:600; cursor:pointer; border:none; width:100%; margin-top:8px;
+  transition:opacity .15s, transform .1s;
+}
+.btn:active { transform:scale(.98); }
+.btn-primary   { background:var(--gov-primary); color:white; }
+.btn-primary:hover { background:var(--gov-primary-dark); }
+.btn-ghost     { background:var(--gov-neutral); color:var(--gov-gray-a); }
+.btn-ghost:hover { background:#E0E0E0; }
+
+/* ---- Estados ---- */
+.estado-bloque {
+  padding:13px 16px; border-radius:var(--radius-md);
+  font-weight:600; font-size:13px; text-align:center; margin-bottom:4px;
+}
+.estado-bloque.pendiente  { background:var(--estado-pendiente-bg); color:var(--estado-pendiente-txt); }
+.estado-bloque.aprobado   { background:var(--estado-aprobado-bg);  color:var(--estado-aprobado-txt); }
+.estado-bloque.rechazado  { background:var(--estado-rechazado-bg); color:var(--estado-rechazado-txt); }
+
+/* ---- Alertas ---- */
+.alert {
+  padding:11px 14px; border-radius:var(--radius-md); font-size:13px;
+  font-weight:500; margin-bottom:14px; display:flex; align-items:flex-start; gap:9px;
+}
+.alert-info    { background:var(--gov-primary-light); color:var(--gov-primary-dark); }
+.alert-warning { background:#FFF8E1; color:#795500; }
+
+/* ---- Stats dashboard ---- */
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+.stat-card { background:white; border-radius:var(--radius-md); box-shadow:var(--shadow); padding:16px; text-align:center; }
+.stat-number { font-size:26px; font-weight:700; color:var(--gov-primary); line-height:1; }
+.stat-label  { font-size:10px; color:var(--gov-gray-b); margin-top:5px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+
+/* ---- Módulos grid ---- */
+.module-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.module-btn {
+  background:white; border:2px solid var(--gov-neutral); border-radius:var(--radius-lg);
+  padding:18px 12px; text-align:center; cursor:pointer;
+  transition:border-color .15s, box-shadow .15s, transform .1s;
+}
+.module-btn:hover { border-color:var(--gov-primary); box-shadow:var(--shadow); transform:translateY(-2px); }
+.module-btn i { font-size:22px; color:var(--gov-primary); margin-bottom:8px; display:block; }
+.module-btn .mod-label { font-size:12px; font-weight:600; color:var(--gov-gray-a); }
+
+/* ---- Check list progreso ---- */
+.progress-list { list-style:none; }
+.progress-list li {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0; border-bottom:1px solid var(--gov-neutral);
+  font-size:13px; font-weight:500; color:var(--gov-gray-a);
+}
+.progress-list li:last-child { border-bottom:none; }
+.progress-list .check-done { color:var(--gov-green); }
+.progress-list .check-pend { color:var(--gov-accent); }
+
+/* ---- QR ---- */
+.qr-container { display:flex; flex-direction:column; align-items:center; gap:14px; padding:8px 0; }
+#qrCanvas { border-radius:var(--radius-md); padding:10px; background:white; box-shadow:var(--shadow); }
+.qr-code-text { font-family:monospace; font-size:11px; color:var(--gov-gray-b); text-align:center; word-break:break-all; }
+
+/* ---- Data rows (resumen) ---- */
+.data-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--gov-neutral); font-size:13px; }
+.data-row:last-child { border-bottom:none; }
+.data-row .lbl { color:var(--gov-gray-b); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+.data-row .val { font-weight:600; color:var(--gov-black); }
+
+/* ---- Login card ---- */
+.login-wrap { min-height:100vh; display:flex; flex-direction:column; }
+.login-body { flex:1; display:flex; align-items:center; justify-content:center; padding:32px 16px; }
+.login-card { background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:36px 28px; width:100%; max-width:400px; }
+.login-logo { text-align:center; margin-bottom:24px; }
+.login-logo .icon-wrap { width:60px; height:60px; background:var(--gov-primary-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 12px; }
+.login-logo h2 { font-size:18px; font-weight:700; color:var(--gov-tertiary); }
+.login-logo p  { font-size:12px; color:var(--gov-gray-b); margin-top:4px; }
+hr.divider { border:none; border-top:1px solid var(--gov-neutral); margin:18px 0; }
+
+/* ---- Bottom nav (móvil) ---- */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0;
+  background:white; box-shadow:0 -2px 10px rgba(0,0,0,.1);
+  display:flex; justify-content:space-around; padding:8px 0 4px; z-index:200;
+}
+.bnav-item { display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 10px; cursor:pointer; font-size:10px; font-weight:600; color:var(--gov-gray-b); border:none; background:none; }
+.bnav-item i { font-size:18px; }
+.bnav-item.active { color:var(--gov-primary); }
+
+/* ---- Toast ---- */
+#toast {
+  position:fixed; top:72px; left:50%; transform:translateX(-50%);
+  z-index:9999; padding:11px 22px; border-radius:var(--radius-md);
+  font-size:13px; font-weight:600; box-shadow:var(--shadow-lg);
+  display:none; white-space:nowrap;
+}
+</style>
+</head>
+<body>
+
+<!-- ====================== LOGIN ====================== -->
+<div id="loginScreen" class="login-wrap screen active">
+  <div class="gov-topbar">
+    🇨🇱 <strong>GOB.CL</strong><span class="sep">|</span>Gobierno de Chile<span class="sep">|</span>Servicio Nacional de Aduanas
+  </div>
+  <div class="duoc-banner">⚠️ <strong>Prototipo académico DuocUC</strong> — No es un sistema oficial del Estado de Chile</div>
+  <div class="login-body">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="icon-wrap">🛂</div>
+        <h2>Portal del Pasajero</h2>
+        <p>SFFE — Sistema de Flujo Fronterizo Eficiente</p>
+      </div>
+      <hr class="divider">
+      <div class="form-group">
+        <label>RUT o Pasaporte</label>
+        <input id="inRut" placeholder="Ej: 12.345.678-9">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="inPass" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" onclick="login()">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i> Ingresar
+      </button>
+      <div class="alert alert-info" style="margin-top:14px;margin-bottom:0;">
+        <i class="fa-solid fa-circle-info"></i>
+        Demo — usa cualquier RUT y contraseña
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== APP SHELL (post-login) ====================== -->
+<div id="appShell" style="display:none;">
+  <div class="gov-topbar">
+    🇨🇱 <strong>GOB.CL</strong><span class="sep">|</span>Gobierno de Chile · Servicio Nacional de Aduanas
+  </div>
+  <div class="duoc-banner">⚠️ <strong>Prototipo académico DuocUC</strong> — No es un sistema oficial del Estado de Chile</div>
+  <div class="main-header">
+    <div class="header-inner">
+      <div class="logo-area">
+        <div class="logo-icon">🛂</div>
+        <div>
+          <div class="header-title">Portal del Pasajero</div>
+          <div class="header-subtitle">SFFE · Paso Los Libertadores</div>
+        </div>
+      </div>
+      <div class="header-user">
+        <strong id="hdrNombre">—</strong>
+        <span>Pasajero</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+
+    <!-- ---- DASHBOARD ---- -->
+    <div id="sDashboard" class="screen active">
+      <div class="page-title">Bienvenido</div>
+      <div class="page-subtitle">Completa los pasos para obtener tu código QR</div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number" id="stViaje">—</div>
+          <div class="stat-label">Viaje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stQR">—</div>
+          <div class="stat-label">QR</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-circle-check"></i> Estado del Trámite</div>
+        <div class="estado-bloque pendiente" id="estadoBloque">🟡 Pendiente — completa los módulos</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-list-check"></i> Progreso</div>
+        <ul class="progress-list">
+          <li><i class="fa-solid fa-circle-check check-pend" id="chkViaje"></i> Registro de viaje</li>
+          <li><i class="fa-solid fa-circle-check check-pend" id="chkVehiculo"></i> Registro de vehículo <span style="font-size:11px;color:var(--gov-gray-b)">(opcional)</span></li>
+          <li><i class="fa-solid fa-circle-check check-pend" id="chkSag"></i> Declaración SAG</li>
+          <li><i class="fa-solid fa-circle-check check-pend" id="chkQR"></i> Código QR generado</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-grip"></i> Módulos</div>
+        <div class="module-grid">
+          <div class="module-btn" onclick="ir('sViaje')">
+            <i class="fa-solid fa-plane"></i>
+            <div class="mod-label">Registro<br>de Viaje</div>
+          </div>
+          <div class="module-btn" onclick="ir('sVehiculo')">
+            <i class="fa-solid fa-car"></i>
+            <div class="mod-label">Registro<br>de Vehículo</div>
+          </div>
+          <div class="module-btn" onclick="ir('sSag')">
+            <i class="fa-solid fa-leaf"></i>
+            <div class="mod-label">Declaración<br>SAG</div>
+          </div>
+          <div class="module-btn" onclick="ir('sQR')">
+            <i class="fa-solid fa-qrcode"></i>
+            <div class="mod-label">Mi Código<br>QR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- REGISTRO VIAJE ---- -->
+    <div id="sViaje" class="screen">
+      <div class="page-title">Registro de Viaje</div>
+      <div class="page-subtitle">RF02 — Datos del expediente de viaje</div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-calendar-days"></i> Datos del Viaje</div>
+        <div class="form-group">
+          <label>Fecha de Ingreso</label>
+          <input type="date" id="vFecha">
+        </div>
+        <div class="form-group">
+          <label>Destino</label>
+          <input id="vDestino" placeholder="Ej: Buenos Aires, Argentina">
+        </div>
+        <div class="form-group">
+          <label>Paso Fronterizo</label>
+          <select id="vPaso">
+            <option value="">Seleccionar...</option>
+            <option>Los Libertadores</option>
+            <option>Chungará</option>
+            <option>Pino Hachado</option>
+            <option>Pehuenche</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Motivo del Viaje</label>
+          <select id="vMotivo">
+            <option value="">Seleccionar...</option>
+            <option>Turismo</option>
+            <option>Trabajo</option>
+            <option>Estudio</option>
+            <option>Tránsito</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-children"></i> Menores de Edad (RF02)</div>
+        <div class="alert alert-info">
+          <i class="fa-solid fa-circle-info"></i>
+          Si viaja con menores de edad, complete esta sección
+        </div>
+        <div class="form-group">
+          <label>Nombre del Menor</label>
+          <input id="mNombre" placeholder="Nombre completo">
+        </div>
+        <div class="form-group">
+          <label>RUT del Menor</label>
+          <input id="mRut" placeholder="Ej: 23.456.789-0">
+        </div>
+        <div class="form-group">
+          <label>Fecha de Nacimiento</label>
+          <input type="date" id="mFecha">
+        </div>
+        <div class="form-group">
+          <label>¿Requiere Autorización Notarial?</label>
+          <select id="mAutorizacion">
+            <option value="false">No requiere</option>
+            <option value="true">Sí requiere</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <button class="btn btn-primary" onclick="guardarViaje()">
+          <i class="fa-solid fa-floppy-disk"></i> Guardar Viaje
+        </button>
+        <button class="btn btn-ghost" onclick="ir('sDashboard')">
+          <i class="fa-solid fa-arrow-left"></i> Volver
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- REGISTRO VEHÍCULO ---- -->
+    <div id="sVehiculo" class="screen">
+      <div class="page-title">Registro de Vehículo</div>
+      <div class="page-subtitle">RF03 — Datos del vehículo asociado al viaje</div>
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-car"></i> Datos del Vehículo</div>
+        <div class="form-group">
+          <label>Patente</label>
+          <input id="vePatente" placeholder="Ej: ABCD12">
+        </div>
+        <div class="form-group">
+          <label>Marca</label>
+          <input id="veMarca" placeholder="Ej: Toyota">
+        </div>
+        <div class="form-group">
+          <label>Modelo</label>
+          <input id="veModelo" placeholder="Ej: Corolla">
+        </div>
+        <div class="form-group">
+          <label>Año</label>
+          <input type="number" id="veAnio" placeholder="Ej: 2022" min="1990" max="2026">
+        </div>
+        <button class="btn btn-primary" onclick="guardarVehiculo()">
+          <i class="fa-solid fa-floppy-disk"></i> Guardar Vehículo
+        </button>
+        <button class="btn btn-ghost" onclick="ir('sDashboard')">
+          <i class="fa-solid fa-arrow-left"></i> Volver
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- DECLARACIÓN SAG ---- -->
+    <div id="sSag" class="screen">
+      <div class="page-title">Declaración Jurada SAG</div>
+      <div class="page-subtitle">RF02 — Declaración de productos regulados</div>
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-leaf"></i> Declaración</div>
+        <div class="alert alert-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          La declaración falsa puede constituir delito según la normativa SAG vigente
+        </div>
+        <div class="form-group">
+          <label>¿Transporta productos de origen vegetal?</label>
+          <select id="sagVeg" onchange="checkSag()">
+            <option value="false">No</option>
+            <option value="true">Sí</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Transporta animales o productos de origen animal?</label>
+          <select id="sagAni" onchange="checkSag()">
+            <option value="false">No</option>
+            <option value="true">Sí</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Transporta alimentos procesados?</label>
+          <select id="sagAli" onchange="checkSag()">
+            <option value="false">No</option>
+            <option value="true">Sí</option>
+          </select>
+        </div>
+        <div class="form-group" id="sagDetalleWrap" style="display:none;">
+          <label>Detalle de productos declarados</label>
+          <textarea id="sagDetalle" placeholder="Describa los productos..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="guardarSag()">
+          <i class="fa-solid fa-signature"></i> Firmar y Enviar Declaración
+        </button>
+        <button class="btn btn-ghost" onclick="ir('sDashboard')">
+          <i class="fa-solid fa-arrow-left"></i> Volver
+        </button>
+      </div>
+    </div>
+
+    <!-- ---- MI QR ---- -->
+    <div id="sQR" class="screen">
+      <div class="page-title">Mi Código QR</div>
+      <div class="page-subtitle">RF04 — Presenta este código en la caseta de fiscalización</div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-circle-check"></i> Estado del Expediente</div>
+        <div class="estado-bloque pendiente" id="qrEstado">🟡 Pendiente</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-qrcode"></i> Código QR</div>
+        <div class="qr-container">
+          <div id="qrCanvas"></div>
+          <div class="qr-code-text" id="qrTexto">Sin generar — completa los módulos requeridos</div>
+        </div>
+        <button class="btn btn-primary" onclick="generarQR()">
+          <i class="fa-solid fa-qrcode"></i> Generar Código QR
+        </button>
+        <button class="btn btn-ghost" onclick="descargarQR()">
+          <i class="fa-solid fa-download"></i> Descargar QR
+        </button>
+        <button class="btn btn-ghost" onclick="generarPDF()">
+          <i class="fa-solid fa-file-pdf"></i> Comprobante PDF
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-receipt"></i> Resumen del Expediente</div>
+        <div class="data-row"><span class="lbl">Pasajero</span><span class="val" id="resRut">—</span></div>
+        <div class="data-row"><span class="lbl">Destino</span><span class="val" id="resDestino">—</span></div>
+        <div class="data-row"><span class="lbl">Paso</span><span class="val" id="resPaso">—</span></div>
+        <div class="data-row"><span class="lbl">Vehículo</span><span class="val" id="resPatente">—</span></div>
+        <div class="data-row"><span class="lbl">SAG</span><span class="val" id="resSag">—</span></div>
+      </div>
+    </div>
+
+    <!-- ---- PERFIL ---- -->
+    <div id="sPerfil" class="screen">
+      <div class="page-title">Mi Perfil</div>
+      <div class="page-subtitle">Información de sesión</div>
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-user"></i> Datos de Sesión</div>
+        <div class="data-row"><span class="lbl">RUT / Pasaporte</span><span class="val" id="perfilRut">—</span></div>
+        <div class="data-row"><span class="lbl">Rol</span><span class="val">Pasajero</span></div>
+        <div class="data-row"><span class="lbl">Estado trámite</span><span class="val" id="perfilEstado">Pendiente</span></div>
+      </div>
+      <div class="card">
+        <button class="btn btn-ghost" onclick="cerrarSesion()" style="color:#C62828;">
+          <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="bnav-item active" onclick="ir('sDashboard')"><i class="fa-solid fa-house"></i>Inicio</button>
+    <button class="bnav-item" onclick="ir('sViaje')"><i class="fa-solid fa-plane"></i>Viaje</button>
+    <button class="bnav-item" onclick="ir('sQR')"><i class="fa-solid fa-qrcode"></i>Mi QR</button>
+    <button class="bnav-item" onclick="ir('sPerfil')"><i class="fa-solid fa-user"></i>Perfil</button>
+  </nav>
+</div><!-- /appShell -->
+
+<div id="toast"></div>
+
+<script>
+/* Estado prototipo — en React: useState + AuthContext + API calls */
+const S = { usuario:null, viaje:null, vehiculo:null, sag:null, qr:null };
+
+/* Enmascarado RUT (RNF10) */
+function maskRut(r) {
+  const p = r.replace(/\./g,'').split('-');
+  if(p.length!==2) return r;
+  return '*'.repeat(Math.max(0,p[0].length-2))+'**-'+p[1];
+}
+
+/* Login — en React: POST /api/auth/login → JWT → AuthContext */
+function login() {
+  const rut  = document.getElementById('inRut').value.trim();
+  const pass = document.getElementById('inPass').value;
+  if(!rut||!pass){ toast('Completa RUT y contraseña','w'); return; }
+  S.usuario = rut;
+  document.getElementById('hdrNombre').textContent = rut;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appShell').style.display='block';
+  refrescarDashboard();
+}
+
+/* Cerrar sesión */
+function cerrarSesion() {
+  Object.keys(S).forEach(k=>S[k]=null);
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('inRut').value='';
+  document.getElementById('inPass').value='';
+}
+
+/* Navegación */
+function ir(id) {
+  document.querySelectorAll('#appShell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
+  const map={'sDashboard':0,'sViaje':1,'sQR':2,'sPerfil':3};
+  if(map[id]!==undefined) document.querySelectorAll('.bnav-item')[map[id]].classList.add('active');
+  if(id==='sQR') refrescarResumen();
+  if(id==='sPerfil') { document.getElementById('perfilRut').textContent=S.usuario||'—'; document.getElementById('perfilEstado').textContent=S.qr?'Aprobado':'Pendiente'; }
+}
+
+/* Guardar viaje — en React: POST /api/viajes */
+function guardarViaje() {
+  const f=document.getElementById('vFecha').value, d=document.getElementById('vDestino').value.trim(),
+        p=document.getElementById('vPaso').value, m=document.getElementById('vMotivo').value;
+  if(!f||!d||!p||!m){ toast('Completa todos los campos','w'); return; }
+  S.viaje={fecha:f,destino:d,paso:p,motivo:m};
+  toast('Viaje guardado','s'); refrescarDashboard(); setTimeout(()=>ir('sDashboard'),700);
+}
+
+/* Guardar vehículo — en React: POST /api/viajes/{id}/vehiculo */
+function guardarVehiculo() {
+  const p=document.getElementById('vePatente').value.trim().toUpperCase(),
+        ma=document.getElementById('veMarca').value.trim(),
+        mo=document.getElementById('veModelo').value.trim(),
+        a=document.getElementById('veAnio').value;
+  if(!p||!ma||!mo||!a){ toast('Completa todos los campos','w'); return; }
+  S.vehiculo={patente:p,marca:ma,modelo:mo,anio:a};
+  toast('Vehículo registrado','s'); refrescarDashboard(); setTimeout(()=>ir('sDashboard'),700);
+}
+
+/* Guardar SAG — en React: POST /api/viajes/{id}/sag */
+function guardarSag() {
+  const v=document.getElementById('sagVeg').value==='true',
+        a=document.getElementById('sagAni').value==='true',
+        al=document.getElementById('sagAli').value==='true';
+  S.sag={declara:v||a||al,detalle:document.getElementById('sagDetalle').value};
+  toast('Declaración SAG enviada','s'); refrescarDashboard(); setTimeout(()=>ir('sDashboard'),700);
+}
+function checkSag() {
+  const d=['sagVeg','sagAni','sagAli'].some(id=>document.getElementById(id).value==='true');
+  document.getElementById('sagDetalleWrap').style.display=d?'block':'none';
+}
+
+/* Generar QR — en React: GET /api/qr/{id_viaje} (backend ZXing) */
+function generarQR() {
+  if(!S.viaje){ toast('Primero registra un viaje','w'); return; }
+  if(!S.sag){ toast('Primero completa la declaración SAG','w'); return; }
+  const code='SFFE-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase();
+  S.qr=code;
+  document.getElementById('qrCanvas').innerHTML='';
+  new QRCode(document.getElementById('qrCanvas'),{
+    text:code, width:180, height:180,
+    colorDark:'#0A132D', colorLight:'#FFFFFF', correctLevel:QRCode.CorrectLevel.H
+  });
+  document.getElementById('qrTexto').textContent=code;
+  document.getElementById('qrEstado').className='estado-bloque aprobado';
+  document.getElementById('qrEstado').textContent='🟢 Aprobado — presenta este código en la caseta';
+  refrescarDashboard(); toast('QR generado correctamente','s');
+}
+
+function descargarQR() {
+  const img=document.querySelector('#qrCanvas img');
+  if(!img){ toast('Primero genera el QR','w'); return; }
+  const a=document.createElement('a'); a.href=img.src;
+  a.download='QR_SFFE.png'; a.click();
+}
+
+function generarPDF() {
+  if(!S.qr){ toast('Primero genera el QR','w'); return; }
+  const {jsPDF}=window.jspdf; const pdf=new jsPDF();
+  pdf.setFillColor(0,111,179); pdf.rect(0,0,210,26,'F');
+  pdf.setTextColor(255,255,255); pdf.setFontSize(14); pdf.setFont(undefined,'bold');
+  pdf.text('REPÚBLICA DE CHILE — SFFE',20,11);
+  pdf.setFontSize(9); pdf.setFont(undefined,'normal');
+  pdf.text('Servicio Nacional de Aduanas',20,19);
+  pdf.setTextColor(0,0,0); pdf.setFontSize(13); pdf.setFont(undefined,'bold');
+  pdf.text('Comprobante de Trámite Fronterizo',20,38);
+  pdf.setFontSize(8); pdf.setTextColor(150,150,150);
+  pdf.text('PROTOTIPO ACADÉMICO — DuocUC — No es un documento oficial del Estado',20,45);
+  pdf.setDrawColor(0,111,179); pdf.line(20,49,190,49);
+  pdf.setTextColor(0,0,0); pdf.setFontSize(11);
+  const rows=[
+    ['N° Trámite',S.qr],
+    ['Pasajero',S.usuario?maskRut(S.usuario):'—'],
+    ['Destino',S.viaje?.destino||'—'],
+    ['Paso',S.viaje?.paso||'—'],
+    ['Motivo',S.viaje?.motivo||'—'],
+    ['Vehículo',S.vehiculo?S.vehiculo.patente+' · '+S.vehiculo.marca+' '+S.vehiculo.modelo:'No registrado'],
+    ['Declaración SAG',S.sag?(S.sag.declara?'Declara productos':'Sin productos'):'—'],
+    ['Fecha',new Date().toLocaleString('es-CL')],
+  ];
+  rows.forEach(([l,v],i)=>{
+    pdf.setFont(undefined,'bold'); pdf.text(l+':',20,60+i*10);
+    pdf.setFont(undefined,'normal'); pdf.text(String(v),70,60+i*10);
+  });
+  pdf.setFillColor(232,245,232); pdf.roundedRect(20,148,85,13,2,2,'F');
+  pdf.setTextColor(27,94,32); pdf.setFont(undefined,'bold'); pdf.setFontSize(12);
+  pdf.text('ESTADO: APROBADO',25,157);
+  pdf.save('Comprobante_SFFE_Pasajero.pdf');
+}
+
+/* Refrescar dashboard */
+function refrescarDashboard() {
+  document.getElementById('stViaje').textContent=S.viaje?'✅':'—';
+  document.getElementById('stQR').textContent=S.qr?'✅':'—';
+  const chk=(id,ok)=>{
+    const el=document.getElementById(id);
+    el.className='fa-solid fa-circle-check '+(ok?'check-done':'check-pend');
+  };
+  chk('chkViaje',!!S.viaje); chk('chkVehiculo',!!S.vehiculo);
+  chk('chkSag',!!S.sag); chk('chkQR',!!S.qr);
+  const b=document.getElementById('estadoBloque');
+  if(S.qr){ b.className='estado-bloque aprobado'; b.textContent='🟢 Aprobado — QR listo para fiscalización'; }
+  else if(S.viaje){ b.className='estado-bloque pendiente'; b.textContent='🟡 En progreso — genera tu QR para finalizar'; }
+  else { b.className='estado-bloque pendiente'; b.textContent='🟡 Pendiente — completa los módulos'; }
+}
+
+/* Refrescar resumen QR */
+function refrescarResumen() {
+  document.getElementById('resRut').textContent=S.usuario?maskRut(S.usuario):'—';
+  document.getElementById('resDestino').textContent=S.viaje?.destino||'—';
+  document.getElementById('resPaso').textContent=S.viaje?.paso||'—';
+  document.getElementById('resPatente').textContent=S.vehiculo?.patente||'No registrado';
+  document.getElementById('resSag').textContent=S.sag?(S.sag.declara?'Declara productos':'Sin productos'):'—';
+}
+
+/* Toast (reemplaza alert) */
+function toast(msg,t='i') {
+  const el=document.getElementById('toast');
+  const cfg={s:['#E8F5E9','#1B5E20'],w:['#FFF8E1','#795500'],e:['#FFEBEE','#B71C1C'],i:[`var(--gov-primary-light)`,'var(--gov-primary-dark)']};
+  const [bg,cl]=cfg[t]||cfg.i;
+  el.style.cssText=`position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 22px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);background:${bg};color:${cl};display:block;white-space:nowrap;`;
+  el.textContent=msg;
+  setTimeout(()=>el.style.display='none',2500);
+}
+</script>
+</body>
+</html>

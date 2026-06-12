@@ -1,0 +1,43 @@
+package cl.duoc.sffe.controller;
+
+import cl.duoc.sffe.dto.LoginRequest;
+import cl.duoc.sffe.dto.LoginResponse;
+import cl.duoc.sffe.dto.RegisterRequest;
+import cl.duoc.sffe.dto.RegisterResponse;
+import cl.duoc.sffe.service.AuthService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Endpoints públicos de autenticación (RF01).
+ */
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    /** Inicia sesión y devuelve token JWT, rol y nombre. */
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
+    }
+
+    /** Registra un nuevo pasajero. */
+    @PostMapping("/register")
+    public ResponseEntity<RegisterResponse> register(
+            @Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(authService.register(request));
+    }
+}

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFFE — Panel de Fiscalización</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+/* ============================================================
+   PALETA OFICIAL GOBIERNO DE CHILE
+   Fuente: framework.digital.gob.cl/colors.html
+   ============================================================ */
+:root {
+  --gov-primary:       #006FB3;
+  --gov-primary-dark:  #004A80;
+  --gov-primary-light: #E6F3FB;
+  --gov-secondary:     #FE6565;
+  --gov-tertiary:      #0A132D;
+  --gov-accent:        #A8B7C7;
+  --gov-neutral:       #EEEEEE;
+  --gov-gray-a:        #4A4A4A;
+  --gov-gray-b:        #8A8A8A;
+  --gov-black:         #111111;
+  --gov-white:         #FFFFFF;
+  --gov-green:         #2D717C;
+  --estado-pendiente-bg:  #FFF8E1;
+  --estado-pendiente-txt: #795500;
+  --estado-aprobado-bg:   #E8F5E9;
+  --estado-aprobado-txt:  #1B5E20;
+  --estado-rechazado-bg:  #FFEBEE;
+  --estado-rechazado-txt: #B71C1C;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow:    0 2px 8px rgba(0,0,0,.08);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,.12);
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body { background:#EEF2F7; color:var(--gov-black); min-height:100vh; font-size:14px; }
+
+/* ---- Bandas superiores ---- */
+.gov-topbar {
+  background:var(--gov-tertiary); color:white;
+  padding:5px 24px; font-size:11px; font-weight:500;
+  display:flex; align-items:center; gap:8px;
+}
+.gov-topbar .sep { color:var(--gov-accent); margin:0 4px; }
+.duoc-banner {
+  background:#FFF8E1; border-bottom:2px solid #FFD54F;
+  padding:5px 24px; text-align:center; font-size:11px; color:#5D4037; font-weight:500;
+}
+
+/* ---- Header ---- */
+.main-header {
+  background:linear-gradient(135deg, var(--gov-tertiary) 0%, #003A6E 100%);
+  color:white; padding:14px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  box-shadow:var(--shadow-lg); position:sticky; top:0; z-index:100;
+}
+.logo-area { display:flex; align-items:center; gap:12px; }
+.logo-icon { width:38px; height:38px; background:rgba(255,255,255,.15); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; font-size:18px; }
+.header-title { font-size:15px; font-weight:700; }
+.header-subtitle { font-size:10px; opacity:.75; margin-top:1px; }
+.header-right { display:flex; align-items:center; gap:20px; }
+.header-user { text-align:right; font-size:12px; opacity:.9; }
+.header-user strong { display:block; font-size:13px; }
+.header-time { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+/* ---- Layout desktop: sidebar + contenido ---- */
+.layout {
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:0;
+  min-height:calc(100vh - 95px);
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  background:white;
+  border-right:1px solid var(--gov-neutral);
+  padding:16px 0;
+  display:flex; flex-direction:column;
+}
+.nav-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--gov-gray-b); padding:10px 18px 4px; }
+.nav-item {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 18px; font-size:13px; font-weight:500;
+  color:var(--gov-gray-a); cursor:pointer; border:none; background:none;
+  width:100%; text-align:left; border-left:3px solid transparent;
+  transition:background .12s, color .12s, border-color .12s;
+}
+.nav-item i { width:15px; color:var(--gov-gray-b); font-size:13px; }
+.nav-item:hover { background:var(--gov-primary-light); color:var(--gov-primary); }
+.nav-item:hover i { color:var(--gov-primary); }
+.nav-item.active { background:var(--gov-primary-light); color:var(--gov-primary); border-left-color:var(--gov-primary); font-weight:600; }
+.nav-item.active i { color:var(--gov-primary); }
+.nav-divider { height:1px; background:var(--gov-neutral); margin:8px 18px; }
+.nav-spacer { flex:1; }
+.nav-badge {
+  display:inline-block; background:var(--gov-secondary); color:white;
+  font-size:10px; font-weight:700; padding:1px 6px; border-radius:999px; margin-left:auto;
+}
+
+/* ---- Contenido ---- */
+.content { padding:24px; overflow-y:auto; }
+.page-title    { font-size:20px; font-weight:700; color:var(--gov-tertiary); margin-bottom:3px; }
+.page-subtitle { font-size:12px; color:var(--gov-gray-b); margin-bottom:18px; }
+
+/* ---- Pantallas ---- */
+.screen { display:none; animation:fadeIn .2s ease; }
+.screen.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* ---- Cards ---- */
+.card { background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:20px; margin-bottom:14px; }
+.card-title { font-size:13px; font-weight:700; color:var(--gov-black); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.card-title i { color:var(--gov-primary); font-size:12px; }
+
+/* ---- Grid de columnas ---- */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+.full   { grid-column:1/-1; }
+
+/* ---- Formularios ---- */
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:10px; font-weight:700; color:var(--gov-gray-b); margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width:100%; padding:9px 12px; border:1.5px solid var(--gov-neutral);
+  border-radius:var(--radius-md); font-size:13px; color:var(--gov-black);
+  background:#FAFBFC; outline:none; transition:border-color .15s, box-shadow .15s;
+}
+.form-group input:focus,
+.form-group select:focus { border-color:var(--gov-primary); box-shadow:0 0 0 3px rgba(0,111,179,.10); background:white; }
+.form-group textarea { resize:vertical; min-height:70px; }
+
+/* ---- Botones ---- */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:9px 18px; border-radius:var(--radius-md); font-size:13px; font-weight:600;
+  cursor:pointer; border:none; transition:opacity .15s, transform .1s;
+}
+.btn:active { transform:scale(.98); }
+.btn-block { width:100%; margin-top:6px; }
+.btn-primary { background:var(--gov-primary); color:white; }
+.btn-primary:hover { background:var(--gov-primary-dark); }
+.btn-success { background:var(--gov-green); color:white; }
+.btn-success:hover { opacity:.88; }
+.btn-danger  { background:#C62828; color:white; }
+.btn-danger:hover  { opacity:.88; }
+.btn-ghost   { background:var(--gov-neutral); color:var(--gov-gray-a); }
+.btn-ghost:hover   { background:#E0E0E0; }
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.btn-row .btn { flex:1; min-width:140px; }
+
+/* ---- Alertas ---- */
+.alert {
+  padding:10px 14px; border-radius:var(--radius-md); font-size:12px;
+  font-weight:500; margin-bottom:14px; display:flex; align-items:flex-start; gap:8px;
+}
+.alert-warning { background:#FFF8E1; color:#795500; }
+.alert-info    { background:var(--gov-primary-light); color:var(--gov-primary-dark); }
+.alert-danger  { background:var(--estado-rechazado-bg); color:var(--estado-rechazado-txt); }
+
+/* ---- Badges de estado ---- */
+.badge { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px; font-size:11px; font-weight:700; }
+.badge-pendiente  { background:var(--estado-pendiente-bg); color:var(--estado-pendiente-txt); }
+.badge-aprobado   { background:var(--estado-aprobado-bg);  color:var(--estado-aprobado-txt); }
+.badge-rechazado  { background:var(--estado-rechazado-bg); color:var(--estado-rechazado-txt); }
+
+/* ---- Data rows ---- */
+.data-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--gov-neutral); font-size:13px; }
+.data-row:last-child { border-bottom:none; }
+.data-row .lbl { color:var(--gov-gray-b); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+.data-row .val { font-weight:600; color:var(--gov-black); }
+.data-row .masked { font-family:monospace; letter-spacing:1px; }
+
+/* ---- Stats ---- */
+.stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.stat-box { background:white; border-radius:var(--radius-md); box-shadow:var(--shadow); padding:14px 16px; }
+.stat-box .num { font-size:24px; font-weight:700; color:var(--gov-primary); line-height:1; }
+.stat-box .lbl { font-size:10px; color:var(--gov-gray-b); margin-top:4px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+
+/* ---- Progress bar ---- */
+.progress-wrap { background:var(--gov-neutral); border-radius:999px; height:8px; overflow:hidden; margin:6px 0; }
+.progress-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--gov-primary),#00A8E8); transition:width .6s ease; }
+
+/* ---- Tabla historial ---- */
+.tabla { width:100%; border-collapse:collapse; font-size:12px; }
+.tabla th { background:var(--gov-primary); color:white; padding:8px 12px; text-align:left; font-weight:600; font-size:11px; }
+.tabla th:first-child { border-radius:var(--radius-md) 0 0 0; }
+.tabla th:last-child  { border-radius:0 var(--radius-md) 0 0; }
+.tabla td { padding:9px 12px; border-bottom:1px solid var(--gov-neutral); color:var(--gov-gray-a); }
+.tabla tr:last-child td { border-bottom:none; }
+.tabla tr:hover td { background:#F8FAFE; }
+.tabla-wrap { border-radius:var(--radius-md); overflow:hidden; box-shadow:var(--shadow); }
+
+/* ---- Login ---- */
+.login-wrap { min-height:100vh; display:flex; flex-direction:column; }
+.login-body { flex:1; display:flex; align-items:center; justify-content:center; padding:40px 20px; }
+.login-card { background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:40px 36px; width:100%; max-width:420px; }
+.login-logo { text-align:center; margin-bottom:24px; }
+.login-logo .icon-wrap { width:60px; height:60px; background:var(--gov-primary-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 12px; }
+.login-logo h2 { font-size:18px; font-weight:700; color:var(--gov-tertiary); }
+.login-logo p  { font-size:12px; color:var(--gov-gray-b); margin-top:4px; }
+.login-roles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0; }
+.role-btn { padding:10px; border:2px solid var(--gov-neutral); border-radius:var(--radius-md); text-align:center; cursor:pointer; font-size:12px; font-weight:600; color:var(--gov-gray-a); background:white; transition:all .15s; }
+.role-btn.selected { border-color:var(--gov-primary); background:var(--gov-primary-light); color:var(--gov-primary); }
+hr.div { border:none; border-top:1px solid var(--gov-neutral); margin:16px 0; }
+
+/* ---- Toast ---- */
+#toast { position:fixed; top:72px; right:24px; z-index:9999; padding:10px 20px; border-radius:var(--radius-md); font-size:13px; font-weight:600; box-shadow:var(--shadow-lg); display:none; }
+
+/* ---- Responsive básico ---- */
+@media (max-width:900px) {
+  .layout { grid-template-columns:1fr; }
+  .sidebar { display:none; }
+  .grid-2,.grid-3 { grid-template-columns:1fr; }
+  .stat-row { grid-template-columns:1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====================== LOGIN FUNCIONARIO ====================== -->
+<div id="loginScreen" class="login-wrap screen active">
+  <div class="gov-topbar">
+    🇨🇱 <strong>GOB.CL</strong><span class="sep">|</span>Gobierno de Chile<span class="sep">|</span>Servicio Nacional de Aduanas
+  </div>
+  <div class="duoc-banner">⚠️ <strong>Prototipo académico DuocUC</strong> — No es un sistema oficial del Estado de Chile</div>
+  <div class="login-body">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="icon-wrap">🛡️</div>
+        <h2>Panel de Fiscalización</h2>
+        <p>SFFE — Acceso exclusivo para funcionarios autorizados</p>
+      </div>
+      <hr class="div">
+      <p style="font-size:12px;font-weight:700;color:var(--gov-gray-a);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Selecciona tu institución</p>
+      <div class="login-roles">
+        <div class="role-btn selected" id="rol-aduana" onclick="selRol('FUNCIONARIO_ADUANA')">
+          🛃 Aduana
+        </div>
+        <div class="role-btn" id="rol-pdi" onclick="selRol('FUNCIONARIO_PDI')">
+          🔵 PDI
+        </div>
+        <div class="role-btn" id="rol-sag" onclick="selRol('FUNCIONARIO_SAG')">
+          🌿 SAG
+        </div>
+        <div class="role-btn" id="rol-admin" onclick="selRol('ADMIN')">
+          ⚙️ Admin
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Identificador / RUT Funcionario</label>
+        <input id="fRutInput" placeholder="Ej: 12.345.678-9">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="fPassInput" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="loginFuncionario()">
+        <i class="fa-solid fa-shield-halved"></i> Ingresar al Panel
+      </button>
+      <div class="alert alert-info" style="margin-top:14px;margin-bottom:0;">
+        <i class="fa-solid fa-circle-info"></i>
+        Demo — cualquier credencial + seleccionar rol
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== APP SHELL FUNCIONARIO ====================== -->
+<div id="appShell" style="display:none;">
+  <div class="gov-topbar">
+    🇨🇱 <strong>GOB.CL</strong><span class="sep">|</span>Gobierno de Chile · Servicio Nacional de Aduanas
+    <span style="margin-left:auto; font-size:10px; opacity:.7;">🔒 Acceso restringido — Solo funcionarios autorizados</span>
+  </div>
+  <div class="duoc-banner">⚠️ <strong>Prototipo académico DuocUC</strong> — No es un sistema oficial del Estado de Chile</div>
+
+  <div class="main-header">
+    <div class="logo-area">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <div class="header-title">Panel de Fiscalización — SFFE</div>
+        <div class="header-subtitle" id="hdrRol">Funcionario · Paso Los Libertadores</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-time" id="hdrClock">00:00</div>
+      <div class="header-user">
+        <strong id="hdrNombre">—</strong>
+        <span id="hdrInstitucion">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="nav-label">Fiscalización</div>
+      <button class="nav-item active" onclick="ir('sFiscalizacion')">
+        <i class="fa-solid fa-qrcode"></i> Escanear QR
+      </button>
+      <button class="nav-item" onclick="ir('sHistorial')">
+        <i class="fa-solid fa-clock-rotate-left"></i> Historial
+        <span class="nav-badge" id="badgeHistorial">0</span>
+      </button>
+      <div class="nav-divider"></div>
+      <div class="nav-label">Monitoreo</div>
+      <button class="nav-item" onclick="ir('sMonitoreo')">
+        <i class="fa-solid fa-chart-line"></i> Monitoreo del Paso
+      </button>
+      <div class="nav-divider"></div>
+      <div class="nav-label" id="sideAdminLabel" style="display:none;">Administración</div>
+      <button class="nav-item" id="sideAdminBtn" style="display:none;" onclick="ir('sAdmin')">
+        <i class="fa-solid fa-gear"></i> Administración
+      </button>
+      <div class="nav-divider" id="sideAdminDiv" style="display:none;"></div>
+      <div class="nav-spacer"></div>
+      <div class="nav-divider"></div>
+      <button class="nav-item" onclick="cerrarSesion()" style="color:#C62828;">
+        <i class="fa-solid fa-right-from-bracket" style="color:#C62828;"></i> Cerrar Sesión
+      </button>
+    </nav>
+
+    <!-- CONTENIDO -->
+    <div class="content">
+
+      <!-- ---- FISCALIZACIÓN (pantalla principal) ---- -->
+      <div id="sFiscalizacion" class="screen active">
+        <div class="page-title">Fiscalización Fronteriza</div>
+        <div class="page-subtitle">RF05 — Validación de pasajeros mediante código QR</div>
+
+        <div class="alert alert-warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Los datos personales están enmascarados según RNF10. Solo funcionarios con nivel superior pueden ver datos completos.
+        </div>
+
+        <!-- Búsqueda QR -->
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-camera"></i> Escaneo de Código QR</div>
+          <div class="grid-2" style="align-items:flex-end; gap:10px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Código QR del Viajero</label>
+              <input id="inputQR" placeholder="Ingrese o escanee el código QR...">
+            </div>
+            <button class="btn btn-primary" onclick="validarQR()" style="height:38px; margin-top:0;">
+              <i class="fa-solid fa-magnifying-glass"></i> Validar
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel viajero (se muestra tras validar QR) -->
+        <div id="panelViajero" style="display:none;">
+
+          <div class="grid-2">
+            <!-- Datos pasajero -->
+            <div class="card">
+              <div class="card-title"><i class="fa-solid fa-user-shield"></i> Datos del Pasajero</div>
+              <div class="data-row">
+                <span class="lbl">RUT</span>
+                <span class="val masked" id="dRut">*****-X</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Estado</span>
+                <span id="dEstado"><span class="badge badge-pendiente">Pendiente</span></span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Destino</span>
+                <span class="val" id="dDestino">—</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Paso</span>
+                <span class="val" id="dPaso">—</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Motivo</span>
+                <span class="val" id="dMotivo">—</span>
+              </div>
+            </div>
+
+            <!-- Vehículo -->
+            <div class="card">
+              <div class="card-title"><i class="fa-solid fa-car"></i> Vehículo</div>
+              <div class="data-row">
+                <span class="lbl">Patente</span>
+                <span class="val" id="dPatente">—</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Marca</span>
+                <span class="val" id="dMarca">—</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Modelo</span>
+                <span class="val" id="dModelo">—</span>
+              </div>
+              <div class="data-row">
+                <span class="lbl">Año</span>
+                <span class="val" id="dAnio">—</span>
+              </div>
+            </div>
+
+            <!-- Declaración SAG -->
+            <div class="card">
+              <div class="card-title"><i class="fa-solid fa-leaf"></i> Declaración SAG</div>
+              <div id="dSag">
+                <div class="data-row">
+                  <span class="lbl">Estado</span>
+                  <span class="val">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Menores / grupo -->
+            <div class="card">
+              <div class="card-title"><i class="fa-solid fa-children"></i> Grupo / Menores</div>
+              <div id="dMenores" style="font-size:13px; color:var(--gov-gray-b);">Sin menores registrados</div>
+            </div>
+
+            <!-- Resolución — full width -->
+            <div class="card full">
+              <div class="card-title"><i class="fa-solid fa-clipboard-check"></i> Resolución de Fiscalización</div>
+              <div class="form-group">
+                <label>Observaciones del Funcionario</label>
+                <textarea id="dObservaciones" placeholder="Registre observaciones si corresponde..."></textarea>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-success" onclick="resolver('APROBADO')">
+                  <i class="fa-solid fa-circle-check"></i> Autorizar Ingreso
+                </button>
+                <button class="btn btn-danger" onclick="resolver('RECHAZADO')">
+                  <i class="fa-solid fa-circle-xmark"></i> Denegar Ingreso
+                </button>
+                <button class="btn btn-ghost" onclick="resolver('SOSPECHA')">
+                  <i class="fa-solid fa-flag"></i> Marcar Sospecha
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estado vacío inicial -->
+        <div id="emptyState" class="card" style="text-align:center; padding:40px 20px; color:var(--gov-gray-b);">
+          <i class="fa-solid fa-qrcode" style="font-size:48px; opacity:.25; display:block; margin-bottom:14px;"></i>
+          <p style="font-size:14px; font-weight:600;">Ingresa un código QR para comenzar la fiscalización</p>
+          <p style="font-size:12px; margin-top:6px; opacity:.7;">El sistema consultará el expediente en tiempo real</p>
+        </div>
+      </div>
+
+      <!-- ---- HISTORIAL ---- -->
+      <div id="sHistorial" class="screen">
+        <div class="page-title">Historial de Fiscalizaciones</div>
+        <div class="page-subtitle">Registro del turno actual</div>
+        <div class="card">
+          <div class="tabla-wrap">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Código QR</th>
+                  <th>RUT (enmascarado)</th>
+                  <th>Paso</th>
+                  <th>Resolución</th>
+                  <th>Funcionario</th>
+                </tr>
+              </thead>
+              <tbody id="tablaHistorial">
+                <tr>
+                  <td colspan="6" style="text-align:center; color:var(--gov-gray-b); padding:20px;">Sin registros en este turno</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- MONITOREO ---- -->
+      <div id="sMonitoreo" class="screen">
+        <div class="page-title">Monitoreo del Paso</div>
+        <div class="page-subtitle">RF10 — Estado en tiempo real del Paso Los Libertadores</div>
+
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="num" id="monOcupacion">—%</div>
+            <div class="lbl">Ocupación</div>
+          </div>
+          <div class="stat-box">
+            <div class="num" id="monEspera">— min</div>
+            <div class="lbl">Tiempo de espera</div>
+          </div>
+          <div class="stat-box">
+            <div class="num" id="monProcesados">0</div>
+            <div class="lbl">Procesados hoy</div>
+          </div>
+          <div class="stat-box">
+            <div class="num" id="monCarril">3</div>
+            <div class="lbl">Carriles activos</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><i class="fa-solid fa-gauge-high"></i> Nivel de Ocupación</div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+              <span style="color:var(--gov-gray-b);">Capacidad del complejo</span>
+              <span id="monPct" style="font-weight:700;">—%</span>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-fill" id="monBar" style="width:0%"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--gov-gray-b); margin-top:4px;">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><i class="fa-solid fa-circle-dot"></i> Estado del Sistema</div>
+            <div class="data-row">
+              <span class="lbl">Conexión</span>
+              <span id="sysConexion" style="font-weight:600; font-size:12px;">🟢 En línea</span>
+            </div>
+            <div class="data-row">
+              <span class="lbl">API PDI</span>
+              <span style="font-weight:600; font-size:12px;">🟢 Operativa (simulada)</span>
+            </div>
+            <div class="data-row">
+              <span class="lbl">API SAG</span>
+              <span style="font-weight:600; font-size:12px;">🟢 Operativa (simulada)</span>
+            </div>
+            <div class="data-row">
+              <span class="lbl">BD SFFE</span>
+              <span style="font-weight:600; font-size:12px;">🟢 Conectada (simulada)</span>
+            </div>
+          </div>
+
+          <div class="card full">
+            <div class="card-title"><i class="fa-solid fa-triangle-exclamation"></i> Alertas Activas</div>
+            <div id="alertasActivas">
+              <div class="alert alert-info">
+                <i class="fa-solid fa-circle-info"></i>
+                No hay alertas activas en este momento
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:0;">
+              <button class="btn btn-ghost" onclick="simularAlerta()">
+                <i class="fa-solid fa-bell"></i> Simular alerta de saturación
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- ADMIN ---- -->
+      <div id="sAdmin" class="screen">
+        <div class="page-title">Administración</div>
+        <div class="page-subtitle">RF06 — Solo acceso con rol Administrador</div>
+        <div class="alert alert-warning">
+          <i class="fa-solid fa-lock"></i>
+          Esta sección solo está disponible para el rol ADMIN
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><i class="fa-solid fa-chart-bar"></i> Reportes</div>
+            <p style="font-size:13px; color:var(--gov-gray-b); margin-bottom:14px;">
+              Genera reportes estadísticos exportables sobre el flujo de personas y vehículos (RF06)
+            </p>
+            <button class="btn btn-primary btn-block">
+              <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+            </button>
+            <button class="btn btn-ghost btn-block">
+              <i class="fa-solid fa-file-excel"></i> Exportar Excel
+            </button>
+          </div>
+          <div class="card">
+            <div class="card-title"><i class="fa-solid fa-users-gear"></i> Gestión de Usuarios</div>
+            <p style="font-size:13px; color:var(--gov-gray-b); margin-bottom:14px;">
+              Administra roles y accesos de funcionarios
+            </p>
+            <button class="btn btn-ghost btn-block">
+              <i class="fa-solid fa-user-plus"></i> Agregar Funcionario
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /layout -->
+</div><!-- /appShell -->
+
+<div id="toast"></div>
+
+<script>
+/* Estado prototipo — en React: useState + AuthContext + API calls */
+const S = {
+  funcionario: null,
+  rol: 'FUNCIONARIO_ADUANA',
+  historial: [],
+  procesados: 0,
+  /* Mock de expediente para demo (en prod: GET /api/qr/validar/{codigo}) */
+  mockExpediente: {
+    rut:'12.345.678-9', destino:'Buenos Aires, Argentina',
+    paso:'Los Libertadores', motivo:'Turismo',
+    patente:'ABCD12', marca:'Toyota', modelo:'Corolla', anio:'2022',
+    sag:{ declara:true, detalle:'Frutas y verduras' },
+    menores:[]
+  }
+};
+
+/* Selección de rol en login */
+function selRol(r) {
+  S.rol=r;
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('rol-'+r.toLowerCase().replace('funcionario_','')).classList.add('selected');
+}
+
+/* Enmascarado RUT (RNF10) */
+function maskRut(r) {
+  const p=r.replace(/\./g,'').split('-');
+  if(p.length!==2) return r;
+  return '*'.repeat(Math.max(0,p[0].length-2))+'**-'+p[1];
+}
+
+/* Login funcionario — en React: POST /api/auth/login → JWT con rol → AppFuncionario */
+function loginFuncionario() {
+  const id=document.getElementById('fRutInput').value.trim();
+  const pw=document.getElementById('fPassInput').value;
+  if(!id||!pw){ toast('Ingresa tus credenciales','w'); return; }
+  S.funcionario=id;
+  const labels={
+    FUNCIONARIO_ADUANA:'Funcionario · Aduana',
+    FUNCIONARIO_PDI:'Funcionario · PDI',
+    FUNCIONARIO_SAG:'Funcionario · SAG',
+    ADMIN:'Administrador'
+  };
+  document.getElementById('hdrNombre').textContent=maskRut(id.includes('-')?id:id+'- ');
+  document.getElementById('hdrInstitucion').textContent=labels[S.rol]||S.rol;
+  document.getElementById('hdrRol').textContent=(labels[S.rol]||S.rol)+' · Paso Los Libertadores';
+  /* Mostrar Admin si corresponde */
+  if(S.rol==='ADMIN') {
+    ['sideAdminLabel','sideAdminBtn','sideAdminDiv'].forEach(id=>document.getElementById(id).style.display='block');
+  }
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appShell').style.display='block';
+  actualizarMonitoreo();
+}
+
+/* Cerrar sesión */
+function cerrarSesion() {
+  S.funcionario=null; S.historial=[];
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('fRutInput').value='';
+  document.getElementById('fPassInput').value='';
+  ['sideAdminLabel','sideAdminBtn','sideAdminDiv'].forEach(id=>document.getElementById(id).style.display='none');
+}
+
+/* Navegación */
+function ir(id) {
+  document.querySelectorAll('#appShell .screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll(`[onclick="ir('${id}')"]`).forEach(n=>n.classList.add('active'));
+  if(id==='sHistorial') renderHistorial();
+}
+
+/* Validar QR — en React: GET /api/qr/validar/{codigo} → info consolidada */
+function validarQR() {
+  const codigo=document.getElementById('inputQR').value.trim();
+  if(!codigo){ toast('Ingresa un código QR','w'); return; }
+  /* Simulación — en producción: fetch al backend */
+  const expediente=S.mockExpediente;
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('panelViajero').style.display='block';
+  /* Poblar datos con enmascarado */
+  document.getElementById('dRut').textContent=maskRut(expediente.rut);
+  document.getElementById('dEstado').innerHTML='<span class="badge badge-aprobado">✅ Aprobado</span>';
+  document.getElementById('dDestino').textContent=expediente.destino;
+  document.getElementById('dPaso').textContent=expediente.paso;
+  document.getElementById('dMotivo').textContent=expediente.motivo;
+  document.getElementById('dPatente').textContent=expediente.patente||'No registrado';
+  document.getElementById('dMarca').textContent=expediente.marca||'—';
+  document.getElementById('dModelo').textContent=expediente.modelo||'—';
+  document.getElementById('dAnio').textContent=expediente.anio||'—';
+  document.getElementById('dSag').innerHTML=expediente.sag
+    ? `<div class="data-row"><span class="lbl">Estado</span><span class="val">${expediente.sag.declara?'⚠️ Declara productos':'✅ Sin productos'}</span></div>
+       ${expediente.sag.declara?`<div class="data-row"><span class="lbl">Detalle</span><span class="val">${expediente.sag.detalle}</span></div>`:''}`
+    : `<div class="data-row"><span class="lbl">Estado</span><span class="val" style="color:var(--gov-gray-b);">No declarado</span></div>`;
+  document.getElementById('dMenores').innerHTML=expediente.menores?.length
+    ? expediente.menores.map(m=>`<div class="data-row"><span class="lbl">Nombre</span><span class="val">${m.nombre}</span></div>`).join('')
+    : '<span style="font-size:13px;color:var(--gov-gray-b);">Sin menores registrados</span>';
+  toast('Expediente cargado correctamente','s');
+}
+
+/* Resolver fiscalización — en React: PUT /api/fiscalizacion/{codigo}/autorizar */
+function resolver(decision) {
+  const obs=document.getElementById('dObservaciones').value;
+  const el=document.getElementById('dEstado');
+  const map={
+    APROBADO:['badge-aprobado','✅ Autorizado'],
+    RECHAZADO:['badge-rechazado','❌ Denegado'],
+    SOSPECHA:['badge-pendiente','⚠️ Con sospecha']
+  };
+  const [cls,txt]=map[decision];
+  el.innerHTML=`<span class="badge ${cls}">${txt}</span>`;
+  /* Agregar al historial */
+  S.historial.unshift({
+    hora:new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}),
+    codigo:document.getElementById('inputQR').value||'—',
+    rut:maskRut(S.mockExpediente.rut),
+    paso:S.mockExpediente.paso,
+    resolucion:txt,
+    funcionario:maskRut(S.funcionario||'—')
+  });
+  S.procesados++;
+  document.getElementById('monProcesados').textContent=S.procesados;
+  document.getElementById('badgeHistorial').textContent=S.historial.length;
+  const msgs={APROBADO:'Ingreso autorizado y registrado',RECHAZADO:'Denegación registrada',SOSPECHA:'Caso marcado con sospecha'};
+  toast(msgs[decision],'s');
+}
+
+/* Render historial */
+function renderHistorial() {
+  const tbody=document.getElementById('tablaHistorial');
+  if(!S.historial.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gov-gray-b);padding:20px;">Sin registros en este turno</td></tr>';
+    return;
+  }
+  tbody.innerHTML=S.historial.map(r=>`
+    <tr>
+      <td>${r.hora}</td>
+      <td style="font-family:monospace;font-size:11px;">${r.codigo.slice(0,20)}...</td>
+      <td style="font-family:monospace;">${r.rut}</td>
+      <td>${r.paso}</td>
+      <td>${r.resolucion}</td>
+      <td style="font-family:monospace;">${r.funcionario}</td>
+    </tr>`).join('');
+}
+
+/* Monitoreo mock — en React: GET /api/admin/monitoreo (polling) */
+function actualizarMonitoreo() {
+  const oc=Math.floor(Math.random()*35)+55;
+  const es=Math.floor(Math.random()*45)+10;
+  document.getElementById('monOcupacion').textContent=oc+'%';
+  document.getElementById('monEspera').textContent=es+' min';
+  document.getElementById('monPct').textContent=oc+'%';
+  document.getElementById('monBar').style.width=oc+'%';
+  document.getElementById('monBar').style.background=oc>85?'linear-gradient(90deg,#C62828,#EF5350)':oc>70?'linear-gradient(90deg,#E65100,#FF8A65)':'linear-gradient(90deg,var(--gov-primary),#00A8E8)';
+  if(oc>85 && !document.getElementById('alertaAlta')) {
+    const a=document.createElement('div');
+    a.id='alertaAlta';
+    a.className='alert alert-danger';
+    a.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> ⚠️ Saturación del complejo — nivel de ocupación crítico';
+    document.getElementById('alertasActivas').innerHTML='';
+    document.getElementById('alertasActivas').appendChild(a);
+  }
+}
+setInterval(actualizarMonitoreo, 10000);
+
+/* Simular alerta de saturación */
+function simularAlerta() {
+  const el=document.getElementById('alertasActivas');
+  el.innerHTML=`<div class="alert alert-danger"><i class="fa-solid fa-siren-on"></i> 🚨 Protocolo de Contingencia activado — saturación crítica en Los Libertadores. Agendamiento online suspendido.</div>`;
+  toast('Alerta de saturación activada','e');
+}
+
+/* Reloj */
+function reloj() {
+  document.getElementById('hdrClock').textContent=new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+}
+setInterval(reloj,1000); reloj();
+
+/* Online/Offline */
+window.addEventListener('offline',()=>{ document.getElementById('sysConexion').innerHTML='🔴 Sin conexión'; });
+window.addEventListener('online', ()=>{ document.getElementById('sysConexion').innerHTML='🟢 En línea'; });
+
+/* Toast */
+function toast(msg,t='i') {
+  const el=document.getElementById('toast');
+  const cfg={s:['#E8F5E9','#1B5E20'],w:['#FFF8E1','#795500'],e:['#FFEBEE','#B71C1C'],i:['var(--gov-primary-light)','var(--gov-primary-dark)']};
+  const[bg,cl]=cfg[t]||cfg.i;
+  el.style.cssText=`position:fixed;top:72px;right:24px;z-index:9999;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);background:${bg};color:${cl};display:block;`;
+  el.textContent=msg;
+  setTimeout(()=>el.style.display='none',2500);
+}
+</script>
+</body>
+</html>

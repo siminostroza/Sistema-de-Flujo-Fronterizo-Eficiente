@@ -1,0 +1,60 @@
+name: sffe
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: sffe-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: sffe
+      MYSQL_USER: sffe
+      MYSQL_PASSWORD: sffe_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-usffe", "-psffe_dev_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sffe-net
+
+  backend:
+    build: ./backend
+    container_name: sffe-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/sffe?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
+      SPRING_DATASOURCE_USERNAME: sffe
+      SPRING_DATASOURCE_PASSWORD: sffe_dev_password
+      SFFE_JWT_SECRET: cambiar-este-secreto-en-produccion-por-uno-de-al-menos-256-bits
+      SFFE_JWT_EXPIRATION_MS: "86400000"
+    ports:
+      - "8080:8080"
+    networks:
+      - sffe-net
+
+  frontend:
+    build: ./frontend
+    container_name: sffe-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - sffe-net
+
+volumes:
+  mysql_data:
+
+networks:
+  sffe-net:
+    driver: bridge

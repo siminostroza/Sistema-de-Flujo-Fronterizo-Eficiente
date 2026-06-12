@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: sffe-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/sffe?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago}
+    username: ${SPRING_DATASOURCE_USERNAME:sffe}
+    password: ${SPRING_DATASOURCE_PASSWORD:sffe_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+# RNF07: auto-documentación de endpoints con OpenAPI/Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# RNF06: endpoints de salud para monitoreo de disponibilidad
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+sffe:
+  jwt:
+    secret: ${SFFE_JWT_SECRET:secreto-solo-para-desarrollo-local-no-usar-en-produccion}
+    expiration-ms: ${SFFE_JWT_EXPIRATION_MS:86400000}
+
+logging:
+  level:
+    cl.duoc.sffe: DEBUG
