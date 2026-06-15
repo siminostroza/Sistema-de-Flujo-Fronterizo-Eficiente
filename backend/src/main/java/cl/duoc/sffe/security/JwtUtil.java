@@ -15,7 +15,8 @@ import java.util.Date;
 /**
  * Utilidades para generar y validar tokens JWT (RF01).
  *
- * <p>El subject del token es el RUT del usuario. El rol viaja como claim
+ * <p>El subject del token es el identificador del usuario (RUT, pasaporte,
+ * cédula extranjera o código temporal). El rol viaja como claim
  * personalizado "rol" para que el filtro de seguridad pueda autorizar por
  * rol sin consultar la base de datos en cada request.</p>
  */
@@ -33,12 +34,12 @@ public class JwtUtil {
         this.expirationMs = expirationMs;
     }
 
-    /** Genera un token firmado con el RUT como subject y el rol como claim. */
-    public String generarToken(String rut, Rol rol) {
+    /** Genera un token firmado con el identificador como subject y el rol como claim. */
+    public String generarToken(String identificador, Rol rol) {
         Date ahora = new Date();
         Date expira = new Date(ahora.getTime() + expirationMs);
         return Jwts.builder()
-                .subject(rut)
+                .subject(identificador)
                 .claim("rol", rol.name())
                 .issuedAt(ahora)
                 .expiration(expira)
@@ -46,8 +47,8 @@ public class JwtUtil {
                 .compact();
     }
 
-    /** Extrae el RUT (subject) del token. */
-    public String extraerRut(String token) {
+    /** Extrae el identificador (subject) del token. */
+    public String extraerIdentificador(String token) {
         return parseClaims(token).getSubject();
     }
 

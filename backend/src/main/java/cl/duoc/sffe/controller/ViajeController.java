@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * Endpoints de expedientes de viaje del pasajero autenticado (RF02, RF03, RF04).
- * El RUT del usuario se obtiene del JWT validado por
+ * El identificador del usuario se obtiene del JWT validado por
  * {@link cl.duoc.sffe.security.JwtAuthenticationFilter}.
  */
 @RestController

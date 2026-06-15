@@ -8,7 +8,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Vehículo registrado en un expediente de viaje (RF03).
+ * Vehículo registrado en un expediente de viaje (RF03). Un viaje puede tener
+ * hasta dos vehículos: el principal y, opcionalmente, su carro de arrastre o
+ * remolque (relación 1:N con el viaje).
  */
 @Entity
 @Table(name = "vehiculos")
@@ -24,19 +26,28 @@ public class Vehiculo {
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_viaje", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_viaje", nullable = false)
     private Viaje viaje;
 
     @Column(name = "patente", nullable = false, length = 10)
     private String patente;
 
-    @Column(name = "marca", nullable = false, length = 50)
+    @Column(name = "marca", length = 50)
     private String marca;
 
-    @Column(name = "modelo", nullable = false, length = 50)
+    @Column(name = "modelo", length = 50)
     private String modelo;
 
     @Column(name = "anio")
     private Integer anio;
+
+    /** {@code true} si el vehículo es un carro de arrastre o remolque. */
+    @Column(name = "es_remolque", nullable = false)
+    @Builder.Default
+    private Boolean esRemolque = false;
+
+    /** Id del vehículo principal al que se vincula el remolque (nullable). */
+    @Column(name = "vehiculo_principal_id")
+    private Integer vehiculoPrincipalId;
 }

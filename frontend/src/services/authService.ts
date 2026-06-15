@@ -1,8 +1,9 @@
 import api from './api'
 import type { Rol } from '../context/AuthContext'
+import type { TipoDocumento } from '../utils/documento'
 
 export interface LoginPayload {
-  rut: string
+  identificador: string
   contrasena: string
 }
 
@@ -10,11 +11,13 @@ export interface LoginResponse {
   token: string
   rol: Rol
   nombre: string
+  tipoDocumento: TipoDocumento
 }
 
 export interface RegisterPayload {
   nombre: string
-  rut: string
+  tipoDocumento: TipoDocumento
+  identificador?: string
   correo: string
   contrasena: string
   nacionalidad?: string
@@ -24,6 +27,7 @@ export interface RegisterPayload {
 export interface RegisterResponse {
   mensaje: string
   userId: number
+  identificador: string
 }
 
 /** POST /api/auth/login */

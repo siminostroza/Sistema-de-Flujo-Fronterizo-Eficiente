@@ -4,6 +4,7 @@ import cl.duoc.sffe.model.AuditoriaLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -16,4 +17,8 @@ public interface AuditoriaLogRepository extends JpaRepository<AuditoriaLog, Inte
     List<AuditoriaLog> findByUsuarioIdUsuario(Integer idUsuario);
 
     List<AuditoriaLog> findByModulo(String modulo);
+
+    /** Historial del turno de un funcionario: sus registros desde una fecha, más recientes primero (RF05). */
+    List<AuditoriaLog> findByUsuarioIdUsuarioAndFechaAfterOrderByFechaDesc(
+            Integer idUsuario, LocalDateTime desde);
 }

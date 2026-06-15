@@ -26,7 +26,7 @@ import java.util.List;
 /**
  * Lógica de negocio de expedientes de viaje: itinerario, menores, vehículo y
  * declaración SAG (RF02, RF03, RF04). Todas las operaciones se acotan al
- * usuario autenticado, identificado por su RUT a partir del JWT.
+ * usuario autenticado, identificado por su identificador a partir del JWT.
  */
 @Service
 public class ViajeService {
@@ -51,8 +51,8 @@ public class ViajeService {
 
     /** Crea un nuevo expediente de viaje asociado al usuario autenticado (RF02). */
     @Transactional
-    public ViajeResponse crear(String rut, ViajeRequest request) {
-        Usuario usuario = obtenerUsuario(rut);
+    public ViajeResponse crear(String identificador, ViajeRequest request) {
+        Usuario usuario = obtenerUsuario(identificador);
 
         Viaje viaje = Viaje.builder()
                 .usuario(usuario)
@@ -68,8 +68,8 @@ public class ViajeService {
 
     /** Lista los expedientes de viaje del usuario autenticado (RF04). */
     @Transactional(readOnly = true)
-    public List<ViajeResponse> misViajes(String rut) {
-        Usuario usuario = obtenerUsuario(rut);
+    public List<ViajeResponse> misViajes(String identificador) {
+        Usuario usuario = obtenerUsuario(identificador);
         return viajeRepository.findByUsuarioIdUsuario(usuario.getIdUsuario())
                 .stream()
                 .map(ViajeResponse::from)
@@ -78,14 +78,14 @@ public class ViajeService {
 
     /** Obtiene el detalle de un expediente, solo si pertenece al usuario autenticado (RF04). */
     @Transactional(readOnly = true)
-    public ViajeResponse obtener(String rut, Integer idViaje) {
-        return ViajeResponse.from(obtenerViajeDelUsuario(rut, idViaje));
+    public ViajeResponse obtener(String identificador, Integer idViaje) {
+        return ViajeResponse.from(obtenerViajeDelUsuario(identificador, idViaje));
     }
 
     /** Actualiza los datos del itinerario de un expediente propio (RF02). */
     @Transactional
-    public ViajeResponse actualizar(String rut, Integer idViaje, ViajeRequest request) {
-        Viaje viaje = obtenerViajeDelUsuario(rut, idViaje);
+    public ViajeResponse actualizar(String identificador, Integer idViaje, ViajeRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
 
         viaje.setFechaIngreso(request.fechaIngreso());
         viaje.setDestino(request.destino());
@@ -98,8 +98,8 @@ public class ViajeService {
 
     /** Agrega un menor de edad al expediente de viaje (RF02). */
     @Transactional
-    public ViajeResponse agregarMenor(String rut, Integer idViaje, MenorRequest request) {
-        Viaje viaje = obtenerViajeDelUsuario(rut, idViaje);
+    public ViajeResponse agregarMenor(String identificador, Integer idViaje, MenorRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
 
         Menor menor = Menor.builder()
                 .viaje(viaje)
@@ -118,49 +118,89 @@ public class ViajeService {
         return ViajeResponse.from(viaje);
     }
 
-    /** Registra o actualiza el vehículo asociado al expediente, relación 1:1 (RF03). */
+    /**
+     * Registra o actualiza un vehículo del expediente (RF03). Un viaje admite
+     * como máximo un vehículo principal y un remolque; la operación es un upsert
+     * por tipo (busca por {@code esRemolque}, crea si no existe, actualiza si ya
+     * existe). El remolque exige que el vehículo principal ya esté registrado.
+     */
     @Transactional
-    public ViajeResponse registrarVehiculo(String rut, Integer idViaje, VehiculoRequest request) {
-        Viaje viaje = obtenerViajeDelUsuario(rut, idViaje);
+    public ViajeResponse registrarVehiculo(String identificador, Integer idViaje, VehiculoRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
 
-        Vehiculo vehiculo = vehiculoRepository.findByViajeIdViaje(idViaje)
-                .orElseGet(() -> Vehiculo.builder().viaje(viaje).build());
+        boolean esRemolque = Boolean.TRUE.equals(request.esRemolque());
+
+        Vehiculo principal = vehiculoRepository
+                .findByViajeIdViajeAndEsRemolque(idViaje, false)
+                .orElse(null);
+
+        if (esRemolque && principal == null) {
+            throw new ViajeException(HttpStatus.CONFLICT,
+                    "Debes registrar el vehículo principal antes del remolque");
+        }
+
+        Vehiculo vehiculo = vehiculoRepository
+                .findByViajeIdViajeAndEsRemolque(idViaje, esRemolque)
+                .orElseGet(() -> Vehiculo.builder().viaje(viaje).esRemolque(esRemolque).build());
 
         vehiculo.setPatente(request.patente().toUpperCase());
         vehiculo.setMarca(request.marca());
         vehiculo.setModelo(request.modelo());
         vehiculo.setAnio(request.anio());
+        vehiculo.setEsRemolque(esRemolque);
+        vehiculo.setVehiculoPrincipalId(esRemolque ? principal.getIdVehiculo() : null);
 
-        viaje.setVehiculo(vehiculoRepository.save(vehiculo));
+        vehiculoRepository.save(vehiculo);
 
+        // No se agrega manualmente a viaje.getVehiculos(): la colección perezosa
+        // aún no se ha cargado, así que ViajeResponse.from la leerá fresca desde
+        // BD (incluyendo el vehículo recién guardado), igual que con los menores.
         return ViajeResponse.from(viaje);
     }
 
     /** Guarda o actualiza la Declaración Jurada SAG del expediente, relación 1:1 (RF02). */
     @Transactional
-    public ViajeResponse guardarSag(String rut, Integer idViaje, SagRequest request) {
-        Viaje viaje = obtenerViajeDelUsuario(rut, idViaje);
+    public ViajeResponse guardarSag(String identificador, Integer idViaje, SagRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+
+        boolean declaraDivisas = Boolean.TRUE.equals(request.declaraDivisas());
+        if (declaraDivisas
+                && (request.montoDivisas() == null
+                        || request.montoDivisas().compareTo(java.math.BigDecimal.ZERO) <= 0)) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "Si declara divisas, debe indicar un monto mayor a cero");
+        }
 
         DeclaracionSag sag = declaracionSagRepository.findByViajeIdViaje(idViaje)
                 .orElseGet(() -> DeclaracionSag.builder().viaje(viaje).build());
 
+        // Sección SAG
         sag.setDeclaraProductos(request.declaraProductos());
         sag.setProductos(request.productos());
+
+        // Sección Aduanas: si no declara, se descartan los detalles asociados.
+        sag.setDeclaraDivisas(declaraDivisas);
+        sag.setMontoDivisas(declaraDivisas ? request.montoDivisas() : null);
+        sag.setMonedaDivisas(declaraDivisas ? request.monedaDivisas() : null);
+
+        boolean declaraMercancias = Boolean.TRUE.equals(request.declaraMercancias());
+        sag.setDeclaraMercancias(declaraMercancias);
+        sag.setDetalleMercancias(declaraMercancias ? request.detalleMercancias() : null);
 
         viaje.setDeclaracionSag(declaracionSagRepository.save(sag));
 
         return ViajeResponse.from(viaje);
     }
 
-    private Usuario obtenerUsuario(String rut) {
-        return usuarioRepository.findByRut(rut)
+    private Usuario obtenerUsuario(String identificador) {
+        return usuarioRepository.findByIdentificador(identificador)
                 .orElseThrow(() -> new AuthException(
                         HttpStatus.UNAUTHORIZED, "El usuario de la sesión no existe"));
     }
 
     /** Busca el viaje por id y valida que pertenezca al usuario autenticado. */
-    private Viaje obtenerViajeDelUsuario(String rut, Integer idViaje) {
-        Usuario usuario = obtenerUsuario(rut);
+    private Viaje obtenerViajeDelUsuario(String identificador, Integer idViaje) {
+        Usuario usuario = obtenerUsuario(identificador);
 
         Viaje viaje = viajeRepository.findById(idViaje)
                 .orElseThrow(() -> new ViajeException(

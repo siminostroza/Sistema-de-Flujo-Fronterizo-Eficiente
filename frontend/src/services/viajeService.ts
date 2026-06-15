@@ -22,20 +22,32 @@ export interface MenorInfo extends MenorPayload {
   idMenor: number
 }
 
+export type EstadoQr = 'ACTIVO' | 'USADO' | 'EXPIRADO'
+
 export interface VehiculoPayload {
   patente: string
-  marca: string
-  modelo: string
-  anio: number
+  marca?: string | null
+  modelo?: string | null
+  anio?: number | null
+  /** true si es carro de arrastre o remolque (CAMBIO 6.1). */
+  esRemolque?: boolean
 }
 
 export interface VehiculoInfo extends VehiculoPayload {
   idVehiculo: number
+  esRemolque: boolean
 }
 
 export interface SagPayload {
+  // Sección SAG
   declaraProductos: boolean
   productos: string
+  // Sección Aduanas
+  declaraDivisas: boolean
+  montoDivisas?: number | null
+  monedaDivisas?: string | null
+  declaraMercancias: boolean
+  detalleMercancias?: string | null
 }
 
 export interface SagInfo extends SagPayload {
@@ -45,13 +57,37 @@ export interface SagInfo extends SagPayload {
   fecha: string
 }
 
+/** Código QR anidado en el expediente (RF04). */
+export interface QrInfo {
+  codigo: string
+  estado: EstadoQr
+  fechaGeneracion: string
+}
+
 export interface Viaje extends ViajePayload {
   idViaje: number
   estado: EstadoViaje
   createdAt: string
-  vehiculo: VehiculoInfo | null
+  /** Lista de vehículos del viaje: principal y, opcionalmente, remolque (1:N). */
+  vehiculos: VehiculoInfo[]
   sag: SagInfo | null
   menores: MenorInfo[]
+  qr: QrInfo | null
+}
+
+/** Vehículo principal del viaje (no remolque), o null si no hay. */
+export function vehiculoPrincipal(viaje: Viaje): VehiculoInfo | null {
+  return viaje.vehiculos.find((v) => !v.esRemolque) ?? null
+}
+
+/** Remolque / carro de arrastre del viaje, o null si no hay. */
+export function vehiculoRemolque(viaje: Viaje): VehiculoInfo | null {
+  return viaje.vehiculos.find((v) => v.esRemolque) ?? null
+}
+
+/** Formatea el número de expediente como EXP-00042 (CAMBIO 6.1). */
+export function numeroExpediente(idViaje: number): string {
+  return `EXP-${String(idViaje).padStart(5, '0')}`
 }
 
 /** POST /api/viajes — crea un nuevo expediente de viaje (RF02). */

@@ -1,18 +1,22 @@
 package cl.duoc.sffe.dto;
 
+import cl.duoc.sffe.model.CodigoQr;
 import cl.duoc.sffe.model.DeclaracionSag;
 import cl.duoc.sffe.model.EstadoDeclaracion;
+import cl.duoc.sffe.model.EstadoQr;
 import cl.duoc.sffe.model.EstadoViaje;
 import cl.duoc.sffe.model.Menor;
 import cl.duoc.sffe.model.Vehiculo;
 import cl.duoc.sffe.model.Viaje;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * Expediente de viaje completo, con vehículo, declaración SAG y menores
- * anidados (RF02, RF04).
+ * Expediente de viaje completo, con vehículos, declaración (SAG + Aduanas),
+ * menores y código QR anidados (RF02, RF03, RF04).
  */
 public record ViajeResponse(
         Integer idViaje,
@@ -23,9 +27,10 @@ public record ViajeResponse(
         String motivoViaje,
         EstadoViaje estado,
         LocalDateTime createdAt,
-        VehiculoInfo vehiculo,
+        List<VehiculoInfo> vehiculos,
         SagInfo sag,
-        java.util.List<MenorInfo> menores
+        List<MenorInfo> menores,
+        QrInfo qr
 ) {
 
     /** Construye la respuesta a partir de la entidad, mapeando sus relaciones. */
@@ -39,19 +44,21 @@ public record ViajeResponse(
                 viaje.getMotivoViaje(),
                 viaje.getEstado(),
                 viaje.getCreatedAt(),
-                VehiculoInfo.from(viaje.getVehiculo()),
+                viaje.getVehiculos().stream().map(VehiculoInfo::from).toList(),
                 SagInfo.from(viaje.getDeclaracionSag()),
-                viaje.getMenores().stream().map(MenorInfo::from).toList()
+                viaje.getMenores().stream().map(MenorInfo::from).toList(),
+                QrInfo.from(viaje.getCodigoQr())
         );
     }
 
-    /** Vehículo asociado al viaje (RF03), o {@code null} si no se ha registrado. */
+    /** Vehículo asociado al viaje (RF03): principal o carro de arrastre/remolque. */
     public record VehiculoInfo(
             Integer idVehiculo,
             String patente,
             String marca,
             String modelo,
-            Integer anio
+            Integer anio,
+            Boolean esRemolque
     ) {
         public static VehiculoInfo from(Vehiculo vehiculo) {
             if (vehiculo == null) {
@@ -62,16 +69,26 @@ public record ViajeResponse(
                     vehiculo.getPatente(),
                     vehiculo.getMarca(),
                     vehiculo.getModelo(),
-                    vehiculo.getAnio()
+                    vehiculo.getAnio(),
+                    vehiculo.getEsRemolque()
             );
         }
     }
 
-    /** Declaración Jurada SAG (RF02), o {@code null} si no se ha completado. */
+    /**
+     * Declaración Jurada SAG + Aduanas (RF02), o {@code null} si no se ha
+     * completado. Incluye productos regulados (SAG), divisas y mercancías
+     * (Aduanas).
+     */
     public record SagInfo(
             Integer idDeclaracion,
             Boolean declaraProductos,
             String productos,
+            Boolean declaraDivisas,
+            BigDecimal montoDivisas,
+            String monedaDivisas,
+            Boolean declaraMercancias,
+            String detalleMercancias,
             EstadoDeclaracion estado,
             String firmaDigital,
             LocalDateTime fecha
@@ -84,6 +101,11 @@ public record ViajeResponse(
                     sag.getIdDeclaracion(),
                     sag.getDeclaraProductos(),
                     sag.getProductos(),
+                    sag.getDeclaraDivisas(),
+                    sag.getMontoDivisas(),
+                    sag.getMonedaDivisas(),
+                    sag.getDeclaraMercancias(),
+                    sag.getDetalleMercancias(),
                     sag.getEstado(),
                     sag.getFirmaDigital(),
                     sag.getFecha()
@@ -107,6 +129,20 @@ public record ViajeResponse(
                     menor.getFechaNacimiento(),
                     menor.getRequiereAutorizacion()
             );
+        }
+    }
+
+    /** Código QR del expediente (RF04), o {@code null} si aún no se ha generado. */
+    public record QrInfo(
+            String codigo,
+            EstadoQr estado,
+            LocalDateTime fechaGeneracion
+    ) {
+        public static QrInfo from(CodigoQr qr) {
+            if (qr == null) {
+                return null;
+            }
+            return new QrInfo(qr.getCodigo(), qr.getEstado(), qr.getFechaGeneracion());
         }
     }
 }

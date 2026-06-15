@@ -42,6 +42,20 @@ public class AuditoriaLog {
     @Column(name = "modulo", nullable = false, length = 50)
     private String modulo;
 
+    /**
+     * Contexto de fiscalización (RF05): código QR resuelto. Nullable porque hay
+     * acciones de auditoría sin QR asociado.
+     */
+    @Column(name = "codigo_qr", length = 255)
+    private String codigoQr;
+
+    /**
+     * Contexto de fiscalización (RF05): identificador del pasajero ya
+     * enmascarado (RNF10). Nullable por la misma razón que {@link #codigoQr}.
+     */
+    @Column(name = "identificador_enmascarado", length = 30)
+    private String identificadorEnmascarado;
+
     @CreationTimestamp
     @Column(name = "fecha", nullable = false, updatable = false)
     private LocalDateTime fecha;

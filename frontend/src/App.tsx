@@ -4,9 +4,14 @@ import Login from './pages/Login'
 import LoginFuncionario from './pages/LoginFuncionario'
 import Dashboard from './pages/Dashboard'
 import RegistroViaje from './pages/RegistroViaje'
-import RegistroVehiculo from './pages/RegistroVehiculo'
-import DeclaracionSag from './pages/DeclaracionSag'
-import Fiscalizacion from './pages/Fiscalizacion'
+import EstadoTramite from './pages/EstadoTramite'
+import Perfil from './pages/Perfil'
+import FiscalizacionQr from './pages/FiscalizacionQr'
+import Historial from './pages/Historial'
+import Monitoreo from './pages/Monitoreo'
+import Admin from './pages/Admin'
+import BottomNav from './components/layout/BottomNav'
+import FuncionarioLayout from './components/layout/FuncionarioLayout'
 import { useAuth, type Rol } from './context/AuthContext'
 
 /**
@@ -29,8 +34,24 @@ function RutaProtegida({
   if (!roles.includes(sesion.rol)) {
     return <Navigate to={destinoPorRol(sesion.rol)} replace />
   }
-  return <>{children}</>
+  if (sesion.rol === 'PASAJERO') {
+    return (
+      <>
+        {children}
+        <BottomNav />
+      </>
+    )
+  }
+  // Funcionarios y admin comparten el layout institucional con sidebar por rol.
+  return <FuncionarioLayout>{children}</FuncionarioLayout>
 }
+
+const ROLES_FUNCIONARIO: Rol[] = [
+  'FUNCIONARIO_ADUANA',
+  'FUNCIONARIO_PDI',
+  'FUNCIONARIO_SAG',
+  'ADMIN',
+]
 
 /** Pantalla inicial de cada rol tras autenticarse. */
 function destinoPorRol(rol: Rol): string {
@@ -76,18 +97,18 @@ function App() {
         }
       />
       <Route
-        path="/registro-vehiculo"
+        path="/estado-tramite"
         element={
           <RutaProtegida roles={['PASAJERO']}>
-            <RegistroVehiculo />
+            <EstadoTramite />
           </RutaProtegida>
         }
       />
       <Route
-        path="/declaracion-sag"
+        path="/perfil"
         element={
           <RutaProtegida roles={['PASAJERO']}>
-            <DeclaracionSag />
+            <Perfil />
           </RutaProtegida>
         }
       />
@@ -96,15 +117,32 @@ function App() {
       <Route
         path="/fiscalizacion"
         element={
-          <RutaProtegida
-            roles={[
-              'FUNCIONARIO_ADUANA',
-              'FUNCIONARIO_PDI',
-              'FUNCIONARIO_SAG',
-              'ADMIN',
-            ]}
-          >
-            <Fiscalizacion />
+          <RutaProtegida roles={ROLES_FUNCIONARIO}>
+            <FiscalizacionQr />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/historial"
+        element={
+          <RutaProtegida roles={ROLES_FUNCIONARIO}>
+            <Historial />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/monitoreo"
+        element={
+          <RutaProtegida roles={['FUNCIONARIO_ADUANA', 'ADMIN']}>
+            <Monitoreo />
+          </RutaProtegida>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RutaProtegida roles={['ADMIN']}>
+            <Admin />
           </RutaProtegida>
         }
       />

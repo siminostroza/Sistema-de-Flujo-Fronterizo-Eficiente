@@ -63,8 +63,9 @@ public class Viaje {
     @Builder.Default
     private List<Menor> menores = new ArrayList<>();
 
-    @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Vehiculo vehiculo;
+    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Vehiculo> vehiculos = new ArrayList<>();
 
     @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
     private DeclaracionSag declaracionSag;

@@ -1,9 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import TopBar from '../components/layout/TopBar'
 import Banner from '../components/layout/Banner'
+import Footer from '../components/layout/Footer'
+import DocumentoFields from '../components/ui/DocumentoFields'
 import { useAuth } from '../context/AuthContext'
 import { login as loginRequest, mensajeDeError } from '../services/authService'
-import { validarRut } from '../utils/rut'
+import {
+  normalizarIdentificador,
+  validarIdentificador,
+  mensajeValidacionIdentificador,
+  type TipoDocumento,
+} from '../utils/documento'
 
 type Institucion = 'ADUANA' | 'PDI' | 'SAG' | 'ADMIN'
 
@@ -28,7 +36,8 @@ function LoginFuncionario() {
   const { login } = useAuth()
 
   const [institucion, setInstitucion] = useState<Institucion>('ADUANA')
-  const [rut, setRut] = useState('')
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('RUT')
+  const [identificador, setIdentificador] = useState('')
   const [contrasena, setContrasena] = useState('')
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -37,19 +46,19 @@ function LoginFuncionario() {
     e.preventDefault()
     setError('')
 
-    if (!validarRut(rut)) {
-      setError('El RUT ingresado no es válido. Formato esperado: 12345678-9')
+    if (!validarIdentificador(identificador, tipoDocumento)) {
+      setError(mensajeValidacionIdentificador(tipoDocumento))
       return
     }
 
     setCargando(true)
     try {
-      const datos = await loginRequest({ rut, contrasena })
+      const datos = await loginRequest({ identificador, contrasena })
       if (datos.rol === 'PASAJERO') {
         setError('Esta cuenta es de pasajero. Usa el ingreso de pasajeros.')
         return
       }
-      login(datos)
+      login({ ...datos, identificador: normalizarIdentificador(identificador) })
       navigate('/fiscalizacion')
     } catch (err) {
       setError(mensajeDeError(err))
@@ -59,23 +68,25 @@ function LoginFuncionario() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[380px_1fr]">
-      {/* Panel institucional lateral */}
-      <aside className="flex flex-col justify-center bg-gov-tertiary px-7 py-8 text-white">
-        <div className="text-xs font-bold tracking-wider">GOB.CL</div>
-        <h1 className="mb-1 mt-3 text-[28px]">SFFE</h1>
-        <p className="m-0 text-sm text-gov-accent">
-          Control Fronterizo · Acceso institucional
-        </p>
-        <p className="mt-6 text-[13px] text-gov-accent">
-          Servicio Nacional de Aduanas · Gobierno de Chile
-        </p>
-      </aside>
+    <div className="flex min-h-screen flex-col">
+      <TopBar />
+      <Banner />
+      <div className="flex flex-1">
+        {/* Panel institucional lateral */}
+        <aside className="flex w-[380px] flex-col justify-center bg-gov-tertiary px-7 py-8 text-white">
+          <div className="text-xs font-bold tracking-wider">GOB.CL</div>
+          <h1 className="mb-1 mt-3 text-[28px]">SFFE</h1>
+          <p className="m-0 text-sm text-gov-accent">
+            Control Fronterizo · Acceso institucional
+          </p>
+          <p className="mt-6 text-[13px] text-gov-accent">
+            Servicio Nacional de Aduanas · Gobierno de Chile
+          </p>
+        </aside>
 
-      {/* Formulario */}
-      <section className="flex flex-col bg-gov-neutral">
-        <Banner />
-        <main className="flex flex-1 items-center justify-center p-6">
+        {/* Formulario */}
+        <section className="flex flex-1 flex-col bg-gov-neutral">
+          <main className="flex flex-1 items-center justify-center p-6">
           <form
             onSubmit={onSubmit}
             className="w-full max-w-[440px] rounded-lg border border-gov-neutral bg-white p-7"
@@ -104,17 +115,13 @@ function LoginFuncionario() {
               })}
             </div>
 
-            <label className={labelClass} htmlFor="rut-func">
-              RUT
-            </label>
-            <input
-              id="rut-func"
-              type="text"
-              placeholder="12345678-9"
-              value={rut}
-              onChange={(e) => setRut(e.target.value)}
-              className={inputClass}
-              autoComplete="username"
+            <DocumentoFields
+              tipoDocumento={tipoDocumento}
+              identificador={identificador}
+              onTipoDocumentoChange={setTipoDocumento}
+              onIdentificadorChange={setIdentificador}
+              modo="login"
+              idPrefix="func"
             />
 
             <label className={labelClass} htmlFor="contrasena-func">
@@ -158,7 +165,9 @@ function LoginFuncionario() {
             </p>
           </form>
         </main>
-      </section>
+        </section>
+      </div>
+      <Footer />
     </div>
   )
 }
