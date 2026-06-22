@@ -41,8 +41,11 @@ public class Viaje {
     @Column(name = "destino", nullable = false, length = 100)
     private String destino;
 
-    @Column(name = "pais_origen", nullable = false, length = 100)
+    @Column(name = "pais_origen", length = 100)
     private String paisOrigen;
+
+    @Column(name = "paso_fronterizo", length = 100)
+    private String pasoFronterizo;
 
     @Column(name = "motivo_viaje", length = 200)
     private String motivoViaje;
@@ -60,8 +63,9 @@ public class Viaje {
     @Builder.Default
     private List<Menor> menores = new ArrayList<>();
 
-    @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Vehiculo vehiculo;
+    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Vehiculo> vehiculos = new ArrayList<>();
 
     @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
     private DeclaracionSag declaracionSag;

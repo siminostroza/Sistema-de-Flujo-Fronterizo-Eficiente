@@ -31,8 +31,16 @@ public class Usuario {
     @Column(name = "nombre", nullable = false, length = 100)
     private String nombre;
 
-    @Column(name = "rut", nullable = false, unique = true, length = 12)
-    private String rut;
+    /**
+     * Identificador del usuario: RUT, pasaporte, cédula extranjera o código
+     * temporal {@code TEMP-...} para pasajeros sin documento (RF01).
+     */
+    @Column(name = "identificador", nullable = false, unique = true, length = 30)
+    private String identificador;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_documento", nullable = false)
+    private TipoDocumento tipoDocumento;
 
     @Column(name = "correo", nullable = false, length = 100)
     private String correo;

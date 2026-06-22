@@ -24,6 +24,27 @@ public class GlobalExceptionHandler {
                 .body(cuerpo(ex.getStatus(), ex.getMessage()));
     }
 
+    /** Errores de negocio sobre expedientes de viaje con estado HTTP propio (RF02, RF04). */
+    @ExceptionHandler(ViajeException.class)
+    public ResponseEntity<Map<String, Object>> handleViaje(ViajeException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
+    /** Errores de negocio sobre códigos QR con estado HTTP propio (RF04, RF05). */
+    @ExceptionHandler(QrException.class)
+    public ResponseEntity<Map<String, Object>> handleQr(QrException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
+    /** Errores de negocio sobre la fiscalización en frontera con estado HTTP propio (RF05). */
+    @ExceptionHandler(FiscalizacionException.class)
+    public ResponseEntity<Map<String, Object>> handleFiscalizacion(FiscalizacionException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
     /** Errores de validación de los DTO (@Valid). Devuelve el primer mensaje. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(

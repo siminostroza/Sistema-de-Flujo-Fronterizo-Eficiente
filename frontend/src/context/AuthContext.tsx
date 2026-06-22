@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
+import type { TipoDocumento } from '../utils/documento'
 
 export type Rol =
   | 'PASAJERO'
@@ -11,6 +12,8 @@ export interface Sesion {
   token: string
   rol: Rol
   nombre: string
+  identificador: string
+  tipoDocumento: TipoDocumento
 }
 
 interface AuthContextType {
@@ -23,6 +26,8 @@ interface AuthContextType {
 const STORAGE_KEY = 'sffe_token'
 const STORAGE_ROL = 'sffe_rol'
 const STORAGE_NOMBRE = 'sffe_nombre'
+const STORAGE_IDENTIFICADOR = 'sffe_identificador'
+const STORAGE_TIPO_DOCUMENTO = 'sffe_tipo_documento'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -31,8 +36,10 @@ function leerSesionInicial(): Sesion | null {
   const token = localStorage.getItem(STORAGE_KEY)
   const rol = localStorage.getItem(STORAGE_ROL) as Rol | null
   const nombre = localStorage.getItem(STORAGE_NOMBRE)
-  if (token && rol && nombre) {
-    return { token, rol, nombre }
+  const identificador = localStorage.getItem(STORAGE_IDENTIFICADOR)
+  const tipoDocumento = localStorage.getItem(STORAGE_TIPO_DOCUMENTO) as TipoDocumento | null
+  if (token && rol && nombre && identificador && tipoDocumento) {
+    return { token, rol, nombre, identificador, tipoDocumento }
   }
   return null
 }
@@ -44,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, datos.token)
     localStorage.setItem(STORAGE_ROL, datos.rol)
     localStorage.setItem(STORAGE_NOMBRE, datos.nombre)
+    localStorage.setItem(STORAGE_IDENTIFICADOR, datos.identificador)
+    localStorage.setItem(STORAGE_TIPO_DOCUMENTO, datos.tipoDocumento)
     setSesion(datos)
   }
 
@@ -51,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(STORAGE_ROL)
     localStorage.removeItem(STORAGE_NOMBRE)
+    localStorage.removeItem(STORAGE_IDENTIFICADOR)
+    localStorage.removeItem(STORAGE_TIPO_DOCUMENTO)
     setSesion(null)
   }
 

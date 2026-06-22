@@ -13,13 +13,13 @@ import java.util.Optional;
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
-    /** Búsqueda por RUT, usada en login y validación de registro. */
-    Optional<Usuario> findByRut(String rut);
+    /** Búsqueda por identificador (RUT, pasaporte, cédula o código temporal), usada en login y validación de registro. */
+    Optional<Usuario> findByIdentificador(String identificador);
 
     Optional<Usuario> findByCorreo(String correo);
 
-    /** Evita RUT duplicados al registrar un pasajero (RF01). */
-    boolean existsByRut(String rut);
+    /** Evita identificadores duplicados al registrar un pasajero (RF01). */
+    boolean existsByIdentificador(String identificador);
 
     boolean existsByCorreo(String correo);
 }

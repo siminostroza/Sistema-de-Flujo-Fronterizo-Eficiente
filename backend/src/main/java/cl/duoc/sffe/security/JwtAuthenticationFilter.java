@@ -44,13 +44,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null
                 && jwtUtil.esValido(token)
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
-            String rut = jwtUtil.extraerRut(token);
+            String identificador = jwtUtil.extraerIdentificador(token);
             Rol rol = jwtUtil.extraerRol(token);
 
             // Authority con prefijo ROLE_ para poder usar hasRole(...) en la config.
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + rol.name()));
             var authentication =
-                    new UsernamePasswordAuthenticationToken(rut, null, authorities);
+                    new UsernamePasswordAuthenticationToken(identificador, null, authorities);
             authentication.setDetails(
                     new WebAuthenticationDetailsSource().buildDetails(request));
 

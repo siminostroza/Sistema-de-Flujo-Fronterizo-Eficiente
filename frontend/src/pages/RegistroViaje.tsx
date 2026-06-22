@@ -1,0 +1,903 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import TopBar from '../components/layout/TopBar'
+import Banner from '../components/layout/Banner'
+import Footer from '../components/layout/Footer'
+import WizardStepper from '../components/ui/WizardStepper'
+import { mensajeDeError } from '../services/authService'
+import {
+  agregarMenor,
+  actualizarViaje,
+  crearViaje,
+  guardarSag,
+  getIdViajeActivo,
+  numeroExpediente,
+  obtenerViaje,
+  registrarVehiculo,
+  setIdViajeActivo,
+  vehiculoPrincipal,
+  vehiculoRemolque,
+  type MenorInfo,
+} from '../services/viajeService'
+import { obtenerQR, type QrResponse } from '../services/qrService'
+import { validarRut } from '../utils/rut'
+
+const PASOS_FRONTERIZOS = ['Los Libertadores', 'Chungará', 'Pino Hachado', 'Pehuenche']
+const MOTIVOS = ['Turismo', 'Trabajo', 'Estudio', 'Tránsito']
+const MONEDAS = ['USD', 'EUR', 'CLP', 'ARS']
+
+const STEPS = ['Viaje', 'Vehículo', 'Declaración', 'Código QR', 'Finalizar']
+
+const cardClass = 'mb-4 rounded-lg border border-gov-neutral bg-white p-5'
+const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
+const inputClass =
+  'mb-3.5 w-full rounded-md border border-gov-accent px-3 py-2.5 text-[15px] outline-none focus:border-gov-primary'
+const labelClass = 'mb-1 block text-[13px] font-semibold text-gov-gray-a'
+const btnPrimario =
+  'w-full rounded-md px-3 py-3 text-[15px] font-bold text-white cursor-pointer bg-gov-primary hover:bg-gov-primary-dark disabled:cursor-default disabled:bg-gov-accent'
+const btnSecundario =
+  'mt-2 w-full cursor-pointer rounded-md bg-gov-neutral px-3 py-3 text-[15px] font-bold text-gov-gray-a'
+
+interface MenorForm {
+  nombre: string
+  rut: string
+  fechaNacimiento: string
+  requiereAutorizacion: boolean
+}
+
+const menorVacio: MenorForm = {
+  nombre: '',
+  rut: '',
+  fechaNacimiento: '',
+  requiereAutorizacion: false,
+}
+
+interface DetalleSag {
+  vegetal: boolean
+  animal: boolean
+  alimentos: boolean
+  detalle: string
+}
+
+/**
+ * Wizard lineal de registro de viaje (CAMBIO 6.1): 5 pasos secuenciales
+ * (Viaje → Vehículo → Declaración SAG+Aduanas → Código QR → Finalizar).
+ * El avance al paso siguiente solo se habilita cuando el paso actual está
+ * guardado en backend; "Atrás" siempre está disponible sin perder datos.
+ */
+function RegistroViaje() {
+  const navigate = useNavigate()
+
+  const [currentStep, setCurrentStep] = useState(0)
+  const [cargandoInicial, setCargandoInicial] = useState(true)
+  const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(false)
+
+  // Paso 1 — Viaje
+  const [idViaje, setIdViaje] = useState<number | null>(null)
+  const [fechaIngreso, setFechaIngreso] = useState('')
+  const [destino, setDestino] = useState('')
+  const [pasoFronterizo, setPasoFronterizo] = useState('')
+  const [motivoViaje, setMotivoViaje] = useState('')
+  const [menoresGuardados, setMenoresGuardados] = useState<MenorInfo[]>([])
+  const [menoresNuevos, setMenoresNuevos] = useState<MenorForm[]>([])
+
+  // Paso 2 — Vehículo
+  const [sinVehiculo, setSinVehiculo] = useState(false)
+  const [principalGuardado, setPrincipalGuardado] = useState(false)
+  const [patente, setPatente] = useState('')
+  const [marca, setMarca] = useState('')
+  const [modelo, setModelo] = useState('')
+  const [anio, setAnio] = useState('')
+  const [llevaRemolque, setLlevaRemolque] = useState(false)
+  const [remolqueGuardado, setRemolqueGuardado] = useState(false)
+  const [patenteRemolque, setPatenteRemolque] = useState('')
+  const [marcaRemolque, setMarcaRemolque] = useState('')
+  const [modeloRemolque, setModeloRemolque] = useState('')
+
+  // Paso 3 — Declaración SAG + Aduanas
+  const [vegetal, setVegetal] = useState(false)
+  const [animal, setAnimal] = useState(false)
+  const [alimentos, setAlimentos] = useState(false)
+  const [detalleSag, setDetalleSag] = useState('')
+  const [sagGuardado, setSagGuardado] = useState(false)
+  const [declaraDivisas, setDeclaraDivisas] = useState(false)
+  const [montoDivisas, setMontoDivisas] = useState('')
+  const [monedaDivisas, setMonedaDivisas] = useState('USD')
+  const [declaraMercancias, setDeclaraMercancias] = useState(false)
+  const [detalleMercancias, setDetalleMercancias] = useState('')
+
+  // Paso 4/5 — QR
+  const [qr, setQr] = useState<QrResponse | null>(null)
+
+  // Carga del expediente activo (si lo hay) para continuar un trámite en curso.
+  useEffect(() => {
+    const activo = getIdViajeActivo()
+    if (!activo) {
+      setCargandoInicial(false)
+      return
+    }
+    obtenerViaje(activo)
+      .then((viaje) => {
+        setIdViaje(viaje.idViaje)
+        setFechaIngreso(viaje.fechaIngreso)
+        setDestino(viaje.destino)
+        setPasoFronterizo(viaje.pasoFronterizo)
+        setMotivoViaje(viaje.motivoViaje)
+        setMenoresGuardados(viaje.menores)
+
+        const principal = vehiculoPrincipal(viaje)
+        if (principal) {
+          setPrincipalGuardado(true)
+          setPatente(principal.patente)
+          setMarca(principal.marca ?? '')
+          setModelo(principal.modelo ?? '')
+          setAnio(principal.anio ? String(principal.anio) : '')
+        }
+        const remolque = vehiculoRemolque(viaje)
+        if (remolque) {
+          setLlevaRemolque(true)
+          setRemolqueGuardado(true)
+          setPatenteRemolque(remolque.patente)
+          setMarcaRemolque(remolque.marca ?? '')
+          setModeloRemolque(remolque.modelo ?? '')
+        }
+
+        if (viaje.sag) {
+          setSagGuardado(true)
+          setDeclaraDivisas(viaje.sag.declaraDivisas)
+          setMontoDivisas(viaje.sag.montoDivisas ? String(viaje.sag.montoDivisas) : '')
+          setMonedaDivisas(viaje.sag.monedaDivisas ?? 'USD')
+          setDeclaraMercancias(viaje.sag.declaraMercancias)
+          setDetalleMercancias(viaje.sag.detalleMercancias ?? '')
+          try {
+            const datos = JSON.parse(viaje.sag.productos) as Partial<DetalleSag>
+            setVegetal(Boolean(datos.vegetal))
+            setAnimal(Boolean(datos.animal))
+            setAlimentos(Boolean(datos.alimentos))
+            setDetalleSag(datos.detalle ?? '')
+          } catch {
+            // Declaración previa en formato no reconocido: se ignora.
+          }
+        }
+
+        // Posiciona el wizard en el primer paso aún no completado.
+        if (!viaje.sag) setCurrentStep(principal ? 2 : 1)
+        else setCurrentStep(3)
+      })
+      .catch(() => {
+        // El expediente guardado ya no existe: se permite crear uno nuevo.
+      })
+      .finally(() => setCargandoInicial(false))
+  }, [])
+
+  const completedSteps = (() => {
+    const done: number[] = []
+    if (idViaje) done.push(0)
+    if (principalGuardado || sinVehiculo) done.push(1)
+    if (sagGuardado) done.push(2)
+    if (qr) done.push(3)
+    return done
+  })()
+
+  const irAtras = () => {
+    setError('')
+    setCurrentStep((s) => Math.max(0, s - 1))
+  }
+
+  // --- Paso 1: Viaje ---
+  const agregarFilaMenor = () => setMenoresNuevos((prev) => [...prev, { ...menorVacio }])
+  const quitarFilaMenor = (i: number) =>
+    setMenoresNuevos((prev) => prev.filter((_, idx) => idx !== i))
+  const actualizarFilaMenor = (i: number, campo: keyof MenorForm, valor: string | boolean) =>
+    setMenoresNuevos((prev) =>
+      prev.map((m, idx) => (idx === i ? { ...m, [campo]: valor } : m)),
+    )
+
+  const guardarViaje = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!fechaIngreso || !destino.trim() || !pasoFronterizo || !motivoViaje) {
+      setError('Completa todos los campos del viaje')
+      return
+    }
+    for (const menor of menoresNuevos) {
+      if (!menor.nombre.trim() || !menor.rut.trim() || !menor.fechaNacimiento) {
+        setError('Completa todos los datos de los menores agregados')
+        return
+      }
+      if (!validarRut(menor.rut)) {
+        setError(`El RUT del menor "${menor.nombre}" no es válido`)
+        return
+      }
+    }
+
+    setCargando(true)
+    try {
+      const payload = { fechaIngreso, destino: destino.trim(), pasoFronterizo, motivoViaje }
+      const viaje = idViaje
+        ? await actualizarViaje(idViaje, payload)
+        : await crearViaje(payload)
+      setIdViaje(viaje.idViaje)
+      setIdViajeActivo(viaje.idViaje)
+
+      for (const menor of menoresNuevos) {
+        await agregarMenor(viaje.idViaje, menor)
+      }
+      setMenoresGuardados((prev) => [
+        ...prev,
+        ...menoresNuevos.map((m, i) => ({ ...m, idMenor: -(prev.length + i + 1) })),
+      ])
+      setMenoresNuevos([])
+      setCurrentStep(1)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  // --- Paso 2: Vehículo ---
+  const guardarVehiculoPrincipal = async () => {
+    setError('')
+    if (!patente.trim() || !marca.trim() || !modelo.trim() || !anio) {
+      setError('Completa todos los campos del vehículo principal')
+      return
+    }
+    if (!idViaje) return
+    setCargando(true)
+    try {
+      await registrarVehiculo(idViaje, {
+        patente: patente.trim().toUpperCase(),
+        marca: marca.trim(),
+        modelo: modelo.trim(),
+        anio: Number(anio),
+        esRemolque: false,
+      })
+      setPrincipalGuardado(true)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  const guardarRemolque = async () => {
+    setError('')
+    if (!patenteRemolque.trim()) {
+      setError('La patente del remolque es obligatoria')
+      return
+    }
+    if (!idViaje) return
+    setCargando(true)
+    try {
+      await registrarVehiculo(idViaje, {
+        patente: patenteRemolque.trim().toUpperCase(),
+        marca: marcaRemolque.trim() || null,
+        modelo: modeloRemolque.trim() || null,
+        esRemolque: true,
+      })
+      setRemolqueGuardado(true)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  const omitirVehiculo = () => {
+    setSinVehiculo(true)
+    setError('')
+    setCurrentStep(2)
+  }
+
+  // --- Paso 3: Declaración ---
+  const requiereDetalleSag = vegetal || animal || alimentos
+
+  const guardarDeclaracion = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!idViaje) return
+
+    if (declaraDivisas && (!montoDivisas || Number(montoDivisas) <= 0)) {
+      setError('Si declara divisas, indica un monto mayor a cero')
+      return
+    }
+    if (declaraMercancias && !detalleMercancias.trim()) {
+      setError('Describe las mercancías declaradas')
+      return
+    }
+
+    setCargando(true)
+    try {
+      const productos: DetalleSag = { vegetal, animal, alimentos, detalle: detalleSag }
+      await guardarSag(idViaje, {
+        declaraProductos: requiereDetalleSag,
+        productos: JSON.stringify(productos),
+        declaraDivisas,
+        montoDivisas: declaraDivisas ? Number(montoDivisas) : null,
+        monedaDivisas: declaraDivisas ? monedaDivisas : null,
+        declaraMercancias,
+        detalleMercancias: declaraMercancias ? detalleMercancias.trim() : null,
+      })
+      setSagGuardado(true)
+      setCurrentStep(3)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  // --- Paso 4: Generar QR ---
+  const generarQr = async () => {
+    if (!idViaje) return
+    setError('')
+    setCargando(true)
+    try {
+      const datos = await obtenerQR(idViaje)
+      setQr(datos)
+      setCurrentStep(4)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  // --- Paso 5: Descargar / Finalizar ---
+  const descargarQr = () => {
+    if (!qr) return
+    const link = document.createElement('a')
+    link.href = `data:image/png;base64,${qr.imagenBase64}`
+    link.download = `sffe-qr-${numeroExpediente(idViaje ?? 0)}.png`
+    link.click()
+  }
+
+  const finalizar = () => {
+    // Reset del wizard: el viaje queda en el historial, se limpia el activo.
+    localStorage.removeItem('sffe_id_viaje_activo')
+    navigate('/dashboard')
+  }
+
+  if (cargandoInicial) {
+    return (
+      <div className="min-h-screen bg-gov-neutral">
+        <TopBar />
+        <Banner />
+        <main className="mx-auto max-w-[520px] px-4 py-6 pb-16">
+          <p className="text-gov-gray-a">Cargando…</p>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gov-neutral">
+      <TopBar />
+      <Banner />
+
+      <main className="mx-auto max-w-[520px] px-4 py-6 pb-16">
+        <h1 className="mb-1 text-[22px] text-gov-black">Nuevo Viaje</h1>
+        <p className="mb-4 mt-0 text-sm text-gov-gray-b">
+          {idViaje ? numeroExpediente(idViaje) : 'Completa los pasos para obtener tu código QR'}
+        </p>
+
+        <WizardStepper steps={STEPS} currentStep={currentStep} completedSteps={completedSteps} />
+
+        {error && (
+          <p
+            role="alert"
+            className="mb-3 rounded-md bg-estado-rechazado-bg px-2.5 py-2 text-[13px] text-estado-rechazado-text"
+          >
+            {error}
+          </p>
+        )}
+
+        {/* ============ PASO 1 — Viaje ============ */}
+        {currentStep === 0 && (
+          <form onSubmit={guardarViaje}>
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Datos del Viaje</div>
+
+              <label className={labelClass} htmlFor="fechaIngreso">
+                Fecha de Ingreso
+              </label>
+              <input
+                id="fechaIngreso"
+                type="date"
+                value={fechaIngreso}
+                onChange={(e) => setFechaIngreso(e.target.value)}
+                className={inputClass}
+              />
+
+              <label className={labelClass} htmlFor="destino">
+                Destino
+              </label>
+              <input
+                id="destino"
+                type="text"
+                placeholder="Ej: Buenos Aires, Argentina"
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                className={inputClass}
+              />
+
+              <label className={labelClass} htmlFor="pasoFronterizo">
+                Paso Fronterizo
+              </label>
+              <select
+                id="pasoFronterizo"
+                value={pasoFronterizo}
+                onChange={(e) => setPasoFronterizo(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Seleccionar…</option>
+                {PASOS_FRONTERIZOS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+
+              <label className={labelClass} htmlFor="motivoViaje">
+                Motivo del Viaje
+              </label>
+              <select
+                id="motivoViaje"
+                value={motivoViaje}
+                onChange={(e) => setMotivoViaje(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Seleccionar…</option>
+                {MOTIVOS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Menores de Edad (RF02)</div>
+              <div className="mb-3 rounded-md bg-gov-primary-light px-3 py-2 text-[13px] text-gov-primary-dark">
+                Si viaja con menores de edad, agrégalos aquí. Este paso es opcional.
+              </div>
+
+              {menoresGuardados.length > 0 && (
+                <ul className="mb-3 list-none">
+                  {menoresGuardados.map((menor) => (
+                    <li
+                      key={menor.idMenor}
+                      className="mb-2 rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2 text-[13px] text-gov-gray-a"
+                    >
+                      <span className="font-semibold text-gov-black">{menor.nombre}</span>
+                      {' · '}
+                      {menor.rut}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {menoresNuevos.map((menor, index) => (
+                <div key={index} className="mb-3 rounded-md border border-gov-accent p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-gov-gray-a">
+                      Menor {index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarFilaMenor(index)}
+                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+
+                  <label className={labelClass}>Nombre del Menor</label>
+                  <input
+                    type="text"
+                    placeholder="Nombre completo"
+                    value={menor.nombre}
+                    onChange={(e) => actualizarFilaMenor(index, 'nombre', e.target.value)}
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>RUT del Menor</label>
+                  <input
+                    type="text"
+                    placeholder="12345678-9"
+                    value={menor.rut}
+                    onChange={(e) => actualizarFilaMenor(index, 'rut', e.target.value)}
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>Fecha de Nacimiento</label>
+                  <input
+                    type="date"
+                    value={menor.fechaNacimiento}
+                    onChange={(e) =>
+                      actualizarFilaMenor(index, 'fechaNacimiento', e.target.value)
+                    }
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>¿Requiere Autorización Notarial?</label>
+                  <select
+                    value={menor.requiereAutorizacion ? 'true' : 'false'}
+                    onChange={(e) =>
+                      actualizarFilaMenor(index, 'requiereAutorizacion', e.target.value === 'true')
+                    }
+                    className={inputClass}
+                  >
+                    <option value="false">No requiere</option>
+                    <option value="true">Sí requiere</option>
+                  </select>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={agregarFilaMenor}
+                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary"
+              >
+                + Agregar menor
+              </button>
+            </div>
+
+            <button type="submit" disabled={cargando} className={btnPrimario}>
+              {cargando ? 'Guardando…' : 'Guardar y continuar'}
+            </button>
+            <button type="button" onClick={() => navigate('/dashboard')} className={btnSecundario}>
+              Cancelar
+            </button>
+          </form>
+        )}
+
+        {/* ============ PASO 2 — Vehículo ============ */}
+        {currentStep === 1 && (
+          <div>
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Vehículo (RF03)</div>
+
+              <label className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-gov-gray-a">
+                <input
+                  type="checkbox"
+                  checked={sinVehiculo}
+                  onChange={(e) => setSinVehiculo(e.target.checked)}
+                />
+                Viajo a pie / en transporte público (omitir vehículo)
+              </label>
+
+              {!sinVehiculo && (
+                <>
+                  <label className={labelClass}>Patente</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: ABCD12"
+                    value={patente}
+                    onChange={(e) => setPatente(e.target.value)}
+                    disabled={principalGuardado}
+                    className={inputClass}
+                  />
+                  <label className={labelClass}>Marca</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Toyota"
+                    value={marca}
+                    onChange={(e) => setMarca(e.target.value)}
+                    disabled={principalGuardado}
+                    className={inputClass}
+                  />
+                  <label className={labelClass}>Modelo</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Corolla"
+                    value={modelo}
+                    onChange={(e) => setModelo(e.target.value)}
+                    disabled={principalGuardado}
+                    className={inputClass}
+                  />
+                  <label className={labelClass}>Año</label>
+                  <input
+                    type="number"
+                    placeholder="Ej: 2022"
+                    min={1990}
+                    max={new Date().getFullYear() + 1}
+                    value={anio}
+                    onChange={(e) => setAnio(e.target.value)}
+                    disabled={principalGuardado}
+                    className={inputClass}
+                  />
+
+                  {!principalGuardado ? (
+                    <button
+                      type="button"
+                      onClick={guardarVehiculoPrincipal}
+                      disabled={cargando}
+                      className={btnPrimario}
+                    >
+                      {cargando ? 'Guardando…' : 'Guardar vehículo'}
+                    </button>
+                  ) : (
+                    <div className="rounded-md bg-estado-aprobado-bg px-3 py-2 text-[13px] font-semibold text-estado-aprobado-text">
+                      ✓ Vehículo principal guardado
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Remolque: solo tras guardar el vehículo principal */}
+            {!sinVehiculo && principalGuardado && (
+              <div className={cardClass}>
+                <label className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-gov-gray-a">
+                  <input
+                    type="checkbox"
+                    checked={llevaRemolque}
+                    onChange={(e) => setLlevaRemolque(e.target.checked)}
+                  />
+                  ¿Lleva carro de arrastre o remolque?
+                </label>
+
+                {llevaRemolque && (
+                  <>
+                    <label className={labelClass}>Patente del remolque</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: RM1234"
+                      value={patenteRemolque}
+                      onChange={(e) => setPatenteRemolque(e.target.value)}
+                      disabled={remolqueGuardado}
+                      className={inputClass}
+                    />
+                    <label className={labelClass}>Marca (opcional)</label>
+                    <input
+                      type="text"
+                      value={marcaRemolque}
+                      onChange={(e) => setMarcaRemolque(e.target.value)}
+                      disabled={remolqueGuardado}
+                      className={inputClass}
+                    />
+                    <label className={labelClass}>Modelo (opcional)</label>
+                    <input
+                      type="text"
+                      value={modeloRemolque}
+                      onChange={(e) => setModeloRemolque(e.target.value)}
+                      disabled={remolqueGuardado}
+                      className={inputClass}
+                    />
+                    {!remolqueGuardado ? (
+                      <button
+                        type="button"
+                        onClick={guardarRemolque}
+                        disabled={cargando}
+                        className={btnPrimario}
+                      >
+                        {cargando ? 'Guardando…' : 'Guardar remolque'}
+                      </button>
+                    ) : (
+                      <div className="rounded-md bg-estado-aprobado-bg px-3 py-2 text-[13px] font-semibold text-estado-aprobado-text">
+                        ✓ Remolque guardado
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {sinVehiculo ? (
+              <button type="button" onClick={omitirVehiculo} className={btnPrimario}>
+                Omitir y continuar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCurrentStep(2)}
+                disabled={!principalGuardado}
+                className={btnPrimario}
+              >
+                Continuar
+              </button>
+            )}
+            <button type="button" onClick={irAtras} className={btnSecundario}>
+              Atrás
+            </button>
+          </div>
+        )}
+
+        {/* ============ PASO 3 — Declaración SAG + Aduanas ============ */}
+        {currentStep === 2 && (
+          <form onSubmit={guardarDeclaracion}>
+            {/* Sección SAG */}
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Sección 1 — Declaración SAG</div>
+              <div className="mb-3 rounded-md bg-estado-pendiente-bg px-3 py-2 text-[13px] text-estado-pendiente-text">
+                ⚠️ La declaración falsa puede constituir delito según la normativa SAG vigente.
+              </div>
+
+              <label className={labelClass}>¿Transporta productos de origen vegetal?</label>
+              <select
+                value={vegetal ? 'true' : 'false'}
+                onChange={(e) => setVegetal(e.target.value === 'true')}
+                className={inputClass}
+              >
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+
+              <label className={labelClass}>
+                ¿Transporta animales o productos de origen animal?
+              </label>
+              <select
+                value={animal ? 'true' : 'false'}
+                onChange={(e) => setAnimal(e.target.value === 'true')}
+                className={inputClass}
+              >
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+
+              <label className={labelClass}>¿Transporta alimentos procesados?</label>
+              <select
+                value={alimentos ? 'true' : 'false'}
+                onChange={(e) => setAlimentos(e.target.value === 'true')}
+                className={inputClass}
+              >
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+
+              {requiereDetalleSag && (
+                <>
+                  <label className={labelClass}>Detalle de productos declarados</label>
+                  <textarea
+                    value={detalleSag}
+                    onChange={(e) => setDetalleSag(e.target.value)}
+                    placeholder="Describa los productos…"
+                    className={`${inputClass} min-h-[80px] resize-y`}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Sección Aduanas */}
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Sección 2 — Declaración de Aduanas</div>
+              <div className="mb-3 rounded-md bg-estado-pendiente-bg px-3 py-2 text-[13px] text-estado-pendiente-text">
+                ⚠️ Omitir o falsear esta declaración ante el Servicio Nacional de Aduanas
+                puede constituir delito.
+              </div>
+
+              <label className={labelClass}>
+                ¿Porta efectivo o equivalentes superiores a USD 10.000?
+              </label>
+              <select
+                value={declaraDivisas ? 'true' : 'false'}
+                onChange={(e) => setDeclaraDivisas(e.target.value === 'true')}
+                className={inputClass}
+              >
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+
+              {declaraDivisas && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Monto</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="Ej: 12000"
+                      value={montoDivisas}
+                      onChange={(e) => setMontoDivisas(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Moneda</label>
+                    <select
+                      value={monedaDivisas}
+                      onChange={(e) => setMonedaDivisas(e.target.value)}
+                      className={inputClass}
+                    >
+                      {MONEDAS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <label className={labelClass}>
+                ¿Transporta mercancías que exceden la franquicia del viajero?
+              </label>
+              <select
+                value={declaraMercancias ? 'true' : 'false'}
+                onChange={(e) => setDeclaraMercancias(e.target.value === 'true')}
+                className={inputClass}
+              >
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+
+              {declaraMercancias && (
+                <>
+                  <label className={labelClass}>Detalle de las mercancías</label>
+                  <textarea
+                    value={detalleMercancias}
+                    onChange={(e) => setDetalleMercancias(e.target.value)}
+                    placeholder="Describa las mercancías…"
+                    className={`${inputClass} min-h-[80px] resize-y`}
+                  />
+                </>
+              )}
+            </div>
+
+            <button type="submit" disabled={cargando} className={btnPrimario}>
+              {cargando ? 'Enviando…' : 'Firmar y continuar'}
+            </button>
+            <button type="button" onClick={irAtras} className={btnSecundario}>
+              Atrás
+            </button>
+          </form>
+        )}
+
+        {/* ============ PASO 4 — Generar QR ============ */}
+        {currentStep === 3 && (
+          <div>
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Generar Código QR</div>
+              <p className="mb-3 text-[14px] text-gov-gray-a">
+                Tu expediente está completo. Genera el código QR que presentarás en la
+                caseta de fiscalización.
+              </p>
+              <button type="button" onClick={generarQr} disabled={cargando} className={btnPrimario}>
+                {cargando ? 'Generando…' : 'Generar mi código QR'}
+              </button>
+            </div>
+            <button type="button" onClick={irAtras} className={btnSecundario}>
+              Atrás
+            </button>
+          </div>
+        )}
+
+        {/* ============ PASO 5 — Descargar / Finalizar ============ */}
+        {currentStep === 4 && qr && (
+          <div>
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Tu Código QR</div>
+              <div className="text-center">
+                <img
+                  src={`data:image/png;base64,${qr.imagenBase64}`}
+                  alt="Código QR del expediente"
+                  className="mx-auto h-[220px] w-[220px]"
+                />
+                <button
+                  type="button"
+                  onClick={descargarQr}
+                  className="mt-3 w-full cursor-pointer rounded-md bg-gov-primary px-3 py-2.5 text-[15px] font-bold text-white hover:bg-gov-primary-dark"
+                >
+                  Descargar QR
+                </button>
+              </div>
+            </div>
+            <div className="mb-4 rounded-md bg-gov-primary-light px-3 py-2.5 text-center text-[13px] text-gov-tertiary">
+              Presenta este código en la caseta de fiscalización al llegar al paso fronterizo.
+            </div>
+            <button type="button" onClick={finalizar} className={btnPrimario}>
+              Finalizar
+            </button>
+          </div>
+        )}
+      </main>
+      <Footer />
+    </div>
+  )
+}
+
+export default RegistroViaje
