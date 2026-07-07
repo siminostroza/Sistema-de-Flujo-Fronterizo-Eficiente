@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Lógica de autenticación y registro de pasajeros (RF01).
@@ -26,15 +27,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final DocumentoValidator documentoValidator;
+    private final FileStorageService fileStorageService;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
-                       DocumentoValidator documentoValidator) {
+                       DocumentoValidator documentoValidator,
+                       FileStorageService fileStorageService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.documentoValidator = documentoValidator;
+        this.fileStorageService = fileStorageService;
     }
 
     /** Valida credenciales por identificador y devuelve un token JWT (RF01). */
@@ -57,10 +61,15 @@ public class AuthService {
 
     /**
      * Registra un nuevo pasajero validando su identificador según el tipo de
-     * documento y la unicidad de identificador y correo (RF01).
+     * documento y la unicidad de identificador y correo (RF01). El carnet de
+     * identidad y los papeles de antecedentes son obligatorios salvo para
+     * SIN_DOCUMENTO (ese tipo de documento implica precisamente no tener
+     * carnet que adjuntar): sin ellos el registro no puede continuar.
      */
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request,
+                                      MultipartFile carnetIdentidad,
+                                      MultipartFile papelesAntecedentes) {
         TipoDocumento tipoDocumento = request.tipoDocumento();
         String identificador = resolverIdentificador(tipoDocumento, request.identificador());
 
@@ -73,6 +82,18 @@ public class AuthService {
                     HttpStatus.CONFLICT, "Ya existe una cuenta registrada con este correo");
         }
 
+        String carnetPath;
+        String antecedentesPath;
+        if (tipoDocumento == TipoDocumento.SIN_DOCUMENTO) {
+            carnetPath = fileStorageService.guardarOpcional(carnetIdentidad, "usuarios", "tu carnet de identidad");
+            antecedentesPath = fileStorageService.guardarOpcional(
+                    papelesAntecedentes, "usuarios", "tus papeles de antecedentes");
+        } else {
+            carnetPath = fileStorageService.guardarObligatorio(carnetIdentidad, "usuarios", "tu carnet de identidad");
+            antecedentesPath = fileStorageService.guardarObligatorio(
+                    papelesAntecedentes, "usuarios", "tus papeles de antecedentes");
+        }
+
         Usuario usuario = Usuario.builder()
                 .nombre(request.nombre())
                 .identificador(identificador)
@@ -83,6 +104,9 @@ public class AuthService {
                         ? request.nacionalidad() : "Chilena")
                 .telefono(request.telefono() != null ? request.telefono() : "")
                 .rol(Rol.PASAJERO)
+                .fechaNacimiento(request.fechaNacimiento())
+                .carnetIdentidadPath(carnetPath)
+                .papelesAntecedentesPath(antecedentesPath)
                 .build();
 
         Usuario guardado = usuarioRepository.save(usuario);

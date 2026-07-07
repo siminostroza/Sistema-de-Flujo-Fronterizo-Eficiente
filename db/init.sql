@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
   nacionalidad VARCHAR(50) NOT NULL,
   telefono    VARCHAR(20) NOT NULL,
   rol         ENUM('PASAJERO','FUNCIONARIO_ADUANA','FUNCIONARIO_PDI','FUNCIONARIO_SAG','ADMIN') NOT NULL,
+  fecha_nacimiento DATE,                        -- RF01: obligatoria solo para pasajeros autoregistrados
+  carnet_identidad_path VARCHAR(255),           -- RF01: obligatorio salvo SIN_DOCUMENTO
+  papeles_antecedentes_path VARCHAR(255),       -- RF01: obligatorio salvo SIN_DOCUMENTO
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_usuarios_identificador UNIQUE (identificador)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -60,6 +63,9 @@ CREATE TABLE IF NOT EXISTS menores (
   rut                   VARCHAR(12)  NOT NULL,
   fecha_nacimiento      DATE NOT NULL,
   requiere_autorizacion BOOLEAN NOT NULL DEFAULT FALSE,
+  carnet_identidad_path VARCHAR(255) NOT NULL,
+  papeles_antecedentes_path VARCHAR(255) NOT NULL,
+  permiso_notarial_path VARCHAR(255),           -- obligatorio solo si requiere_autorizacion = TRUE
   CONSTRAINT fk_menores_viaje FOREIGN KEY (id_viaje) REFERENCES viajes (id_viaje)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -137,19 +143,25 @@ CREATE TABLE IF NOT EXISTS auditoria_logs (
 -- Usuario administrador inicial para poder ingresar al sistema.
 -- Contraseña en texto plano: admin123  (hash BCrypt, coste 10).
 -- INSERT IGNORE evita duplicar si el script se vuelve a ejecutar.
+-- nacionalidad/telefono se incluyen explícitamente: son NOT NULL sin
+-- default, y omitirlos rompe la carga inicial en MySQL con sql_mode
+-- estricto (el comportamiento por defecto de la imagen mysql:8).
+-- fecha_nacimiento/carnet_identidad_path/papeles_antecedentes_path quedan
+-- NULL: estas cuentas semilla no pasan por el formulario público de
+-- registro de pasajero (RF01) que exige esos campos.
 -- =====================================================================
-INSERT IGNORE INTO usuarios (nombre, identificador, tipo_documento, correo, contrasena, rol) VALUES
+INSERT IGNORE INTO usuarios (nombre, identificador, tipo_documento, correo, contrasena, nacionalidad, telefono, rol) VALUES
   ('Administrador SFFE', '11111111-1', 'RUT', 'admin@sffe.cl',
-   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'ADMIN'),
+   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'Chilena', '+56900000000', 'ADMIN'),
 
   ('Usuario de Prueba', '12345678-5', 'RUT', 'user@prueba.cl',
-   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'PASAJERO'),
+   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'Chilena', '+56900000001', 'PASAJERO'),
 
   ('Juan Pérez', '21013281-3', 'RUT', 'juan.perez@prueba.cl',
-   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'FUNCIONARIO_ADUANA'),
+   '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'Chilena', '+56900000002', 'FUNCIONARIO_ADUANA'),
 
   ('María González', '13705281-4', 'RUT', 'maria.gonzalez@prueba.cl',
-    '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'FUNCIONARIO_PDI'),
+    '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'Chilena', '+56900000003', 'FUNCIONARIO_PDI'),
 
   ('Carlos Muñoz', '10112374-K', 'RUT', 'carlos.munoz@prueba.cl',
-    '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'FUNCIONARIO_SAG');
+    '$2b$10$55YXlOEFWqAOQcCXNijfvuOgMjcdamaSWXbSvXPT5xbNJ3R0YtW5S', 'Chilena', '+56900000004', 'FUNCIONARIO_SAG');

@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -43,6 +44,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleFiscalizacion(FiscalizacionException ex) {
         return ResponseEntity.status(ex.getStatus())
                 .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
+    /** Errores de negocio sobre archivos adjuntos, con estado HTTP propio (RF01, RF02). */
+    @ExceptionHandler(ArchivoException.class)
+    public ResponseEntity<Map<String, Object>> handleArchivo(ArchivoException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .body(cuerpo(ex.getStatus(), ex.getMessage()));
+    }
+
+    /** Falta una parte obligatoria (archivo o datos) en un request multipart. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingPart(
+            MissingServletRequestPartException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(cuerpo(HttpStatus.BAD_REQUEST,
+                        "Falta un archivo o dato obligatorio: " + ex.getRequestPartName()));
     }
 
     /** Errores de validación de los DTO (@Valid). Devuelve el primer mensaje. */

@@ -43,4 +43,19 @@ public class Menor {
     @Column(name = "requiere_autorizacion", nullable = false)
     @Builder.Default
     private Boolean requiereAutorizacion = false;
+
+    /** Ruta relativa del carnet de identidad del menor (obligatorio, RF02). */
+    @Column(name = "carnet_identidad_path", nullable = false, length = 255)
+    private String carnetIdentidadPath;
+
+    /** Ruta relativa de los papeles de antecedentes del menor (obligatorio, RF02). */
+    @Column(name = "papeles_antecedentes_path", nullable = false, length = 255)
+    private String papelesAntecedentesPath;
+
+    /**
+     * Ruta relativa del permiso notarial del menor. Obligatorio solo cuando
+     * {@code requiereAutorizacion = true}; nulo en caso contrario.
+     */
+    @Column(name = "permiso_notarial_path", length = 255)
+    private String permisoNotarialPath;
 }

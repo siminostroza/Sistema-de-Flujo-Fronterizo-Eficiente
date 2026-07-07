@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -58,6 +59,26 @@ public class Usuario {
     @Enumerated(EnumType.STRING)
     @Column(name = "rol", nullable = false)
     private Rol rol;
+
+    /**
+     * Fecha de nacimiento del titular de la cuenta (RF01). Obligatoria para
+     * pasajeros autoregistrados; nula para funcionarios/admin creados por
+     * semilla, que no pasan por el formulario público de registro.
+     */
+    @Column(name = "fecha_nacimiento")
+    private LocalDate fechaNacimiento;
+
+    /**
+     * Ruta relativa del carnet de identidad adjuntado en el registro (RF01).
+     * Obligatorio para pasajeros con tipo de documento distinto de
+     * SIN_DOCUMENTO; nulo para funcionarios/admin y para SIN_DOCUMENTO.
+     */
+    @Column(name = "carnet_identidad_path", length = 255)
+    private String carnetIdentidadPath;
+
+    /** Ruta relativa de los papeles de antecedentes adjuntados en el registro (RF01). */
+    @Column(name = "papeles_antecedentes_path", length = 255)
+    private String papelesAntecedentesPath;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

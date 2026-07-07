@@ -22,6 +22,17 @@ export interface MenorInfo extends MenorPayload {
   idMenor: number
 }
 
+/**
+ * Archivos adjuntos del menor (RF02). El carnet y los papeles de
+ * antecedentes son obligatorios; el permiso notarial es obligatorio solo
+ * cuando {@code requiereAutorizacion = true} (validado en el backend).
+ */
+export interface MenorArchivos {
+  carnetIdentidad: File | null
+  papelesAntecedentes: File | null
+  permisoNotarial: File | null
+}
+
 export type EstadoQr = 'ACTIVO' | 'USADO' | 'EXPIRADO'
 
 export interface VehiculoPayload {
@@ -117,12 +128,29 @@ export async function obtenerViaje(idViaje: number): Promise<Viaje> {
   return data
 }
 
-/** POST /api/viajes/{id}/menores — agrega un menor de edad al expediente (RF02). */
+/**
+ * POST /api/viajes/{id}/menores — agrega un menor de edad al expediente
+ * (RF02). Multipart: la parte "datos" lleva el JSON del menor; el carnet de
+ * identidad y los papeles de antecedentes son obligatorios, y el permiso
+ * notarial lo es solo si requiereAutorizacion es true.
+ */
 export async function agregarMenor(
   idViaje: number,
   payload: MenorPayload,
+  archivos: MenorArchivos,
 ): Promise<Viaje> {
-  const { data } = await api.post<Viaje>(`/viajes/${idViaje}/menores`, payload)
+  const formData = new FormData()
+  formData.append('datos', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+  if (archivos.carnetIdentidad) {
+    formData.append('carnetIdentidad', archivos.carnetIdentidad)
+  }
+  if (archivos.papelesAntecedentes) {
+    formData.append('papelesAntecedentes', archivos.papelesAntecedentes)
+  }
+  if (archivos.permisoNotarial) {
+    formData.append('permisoNotarial', archivos.permisoNotarial)
+  }
+  const { data } = await api.post<Viaje>(`/viajes/${idViaje}/menores`, formData)
   return data
 }
 

@@ -12,6 +12,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 15MB
 
 server:
   port: 8080
@@ -34,6 +38,9 @@ sffe:
   jwt:
     secret: ${SFFE_JWT_SECRET:secreto-solo-para-desarrollo-local-no-usar-en-produccion}
     expiration-ms: ${SFFE_JWT_EXPIRATION_MS:86400000}
+  upload:
+    # Carnet de identidad, papeles de antecedentes y permiso notarial (RF01, RF02).
+    dir: ${SFFE_UPLOAD_DIR:uploads}
 
 logging:
   level:

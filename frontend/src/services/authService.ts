@@ -22,6 +22,16 @@ export interface RegisterPayload {
   contrasena: string
   nacionalidad?: string
   telefono?: string
+  fechaNacimiento: string
+}
+
+/**
+ * Carnet de identidad y papeles de antecedentes (RF01). Obligatorios salvo
+ * para SIN_DOCUMENTO, validado en el backend; por eso son nullable aquí.
+ */
+export interface RegisterArchivos {
+  carnetIdentidad: File | null
+  papelesAntecedentes: File | null
 }
 
 export interface RegisterResponse {
@@ -36,11 +46,24 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
   return data
 }
 
-/** POST /api/auth/register */
+/**
+ * POST /api/auth/register — multipart: la parte "datos" lleva el JSON del
+ * registro; "carnetIdentidad" y "papelesAntecedentes" son los archivos
+ * adjuntos.
+ */
 export async function register(
   payload: RegisterPayload,
+  archivos: RegisterArchivos,
 ): Promise<RegisterResponse> {
-  const { data } = await api.post<RegisterResponse>('/auth/register', payload)
+  const formData = new FormData()
+  formData.append('datos', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+  if (archivos.carnetIdentidad) {
+    formData.append('carnetIdentidad', archivos.carnetIdentidad)
+  }
+  if (archivos.papelesAntecedentes) {
+    formData.append('papelesAntecedentes', archivos.papelesAntecedentes)
+  }
+  const { data } = await api.post<RegisterResponse>('/auth/register', formData)
   return data
 }
 

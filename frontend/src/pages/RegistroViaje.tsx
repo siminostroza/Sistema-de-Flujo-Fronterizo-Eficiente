@@ -43,6 +43,9 @@ interface MenorForm {
   rut: string
   fechaNacimiento: string
   requiereAutorizacion: boolean
+  carnetIdentidad: File | null
+  papelesAntecedentes: File | null
+  permisoNotarial: File | null
 }
 
 const menorVacio: MenorForm = {
@@ -50,6 +53,17 @@ const menorVacio: MenorForm = {
   rut: '',
   fechaNacimiento: '',
   requiereAutorizacion: false,
+  carnetIdentidad: null,
+  papelesAntecedentes: null,
+  permisoNotarial: null,
+}
+
+/** true si, a la fecha de ingreso del viaje, la persona tendría menos de 18 años. */
+function esMenorDeEdad(fechaNacimiento: string, fechaIngreso: string): boolean {
+  const nacimiento = new Date(fechaNacimiento)
+  const limite = new Date(fechaIngreso)
+  limite.setFullYear(limite.getFullYear() - 18)
+  return nacimiento > limite
 }
 
 interface DetalleSag {
@@ -193,6 +207,14 @@ function RegistroViaje() {
     setMenoresNuevos((prev) =>
       prev.map((m, idx) => (idx === i ? { ...m, [campo]: valor } : m)),
     )
+  const actualizarArchivoMenor = (
+    i: number,
+    campo: 'carnetIdentidad' | 'papelesAntecedentes' | 'permisoNotarial',
+    archivo: File | null,
+  ) =>
+    setMenoresNuevos((prev) =>
+      prev.map((m, idx) => (idx === i ? { ...m, [campo]: archivo } : m)),
+    )
 
   const guardarViaje = async (e: FormEvent) => {
     e.preventDefault()
@@ -211,6 +233,18 @@ function RegistroViaje() {
         setError(`El RUT del menor "${menor.nombre}" no es válido`)
         return
       }
+      if (!esMenorDeEdad(menor.fechaNacimiento, fechaIngreso)) {
+        setError(`La fecha de nacimiento de "${menor.nombre}" no corresponde a un menor de edad`)
+        return
+      }
+      if (!menor.carnetIdentidad || !menor.papelesAntecedentes) {
+        setError(`Adjunta el carnet de identidad y los papeles de antecedentes de "${menor.nombre}"`)
+        return
+      }
+      if (menor.requiereAutorizacion && !menor.permisoNotarial) {
+        setError(`Adjunta el permiso notarial de "${menor.nombre}" para poder continuar`)
+        return
+      }
     }
 
     setCargando(true)
@@ -223,7 +257,20 @@ function RegistroViaje() {
       setIdViajeActivo(viaje.idViaje)
 
       for (const menor of menoresNuevos) {
-        await agregarMenor(viaje.idViaje, menor)
+        await agregarMenor(
+          viaje.idViaje,
+          {
+            nombre: menor.nombre,
+            rut: menor.rut,
+            fechaNacimiento: menor.fechaNacimiento,
+            requiereAutorizacion: menor.requiereAutorizacion,
+          },
+          {
+            carnetIdentidad: menor.carnetIdentidad,
+            papelesAntecedentes: menor.papelesAntecedentes,
+            permisoNotarial: menor.permisoNotarial,
+          },
+        )
       }
       setMenoresGuardados((prev) => [
         ...prev,
@@ -534,6 +581,40 @@ function RegistroViaje() {
                     <option value="false">No requiere</option>
                     <option value="true">Sí requiere</option>
                   </select>
+
+                  <label className={labelClass}>Carnet de identidad del menor</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) =>
+                      actualizarArchivoMenor(index, 'carnetIdentidad', e.target.files?.[0] ?? null)
+                    }
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>Papeles de antecedentes del menor</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) =>
+                      actualizarArchivoMenor(index, 'papelesAntecedentes', e.target.files?.[0] ?? null)
+                    }
+                    className={inputClass}
+                  />
+
+                  {menor.requiereAutorizacion && (
+                    <>
+                      <label className={labelClass}>Permiso notarial del menor</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) =>
+                          actualizarArchivoMenor(index, 'permisoNotarial', e.target.files?.[0] ?? null)
+                        }
+                        className={inputClass}
+                      />
+                    </>
+                  )}
                 </div>
               ))}
 

@@ -36,8 +36,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: sffe_dev_password
       SFFE_JWT_SECRET: cambiar-este-secreto-en-produccion-por-uno-de-al-menos-256-bits
       SFFE_JWT_EXPIRATION_MS: "86400000"
+      SFFE_UPLOAD_DIR: /app/uploads
     ports:
       - "8080:8080"
+    volumes:
+      - backend_uploads:/app/uploads
     networks:
       - sffe-net
 
@@ -54,6 +57,7 @@ services:
 
 volumes:
   mysql_data:
+  backend_uploads:
 
 networks:
   sffe-net:

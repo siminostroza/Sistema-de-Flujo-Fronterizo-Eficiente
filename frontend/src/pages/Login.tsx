@@ -48,6 +48,13 @@ function Login() {
   const [correo, setCorreo] = useState('')
   const [telefono, setTelefono] = useState('')
   const [contrasenaRegistro, setContrasenaRegistro] = useState('')
+  const [fechaNacimiento, setFechaNacimiento] = useState('')
+  const [carnetIdentidad, setCarnetIdentidad] = useState<File | null>(null)
+  const [papelesAntecedentes, setPapelesAntecedentes] = useState<File | null>(null)
+
+  // El carnet y los papeles de antecedentes no aplican a SIN_DOCUMENTO: ese
+  // tipo de documento implica precisamente no tener carnet que adjuntar.
+  const requiereArchivosIdentidad = tipoDocumentoRegistro !== 'SIN_DOCUMENTO'
 
   const cambiarModo = (nuevoModo: Modo) => {
     setModo(nuevoModo)
@@ -96,18 +103,30 @@ function Login() {
       setError('La contraseña debe tener al menos 6 caracteres')
       return
     }
+    if (!fechaNacimiento) {
+      setError('La fecha de nacimiento es obligatoria')
+      return
+    }
+    if (requiereArchivosIdentidad && (!carnetIdentidad || !papelesAntecedentes)) {
+      setError('Debes adjuntar tu carnet de identidad y tus papeles de antecedentes para continuar')
+      return
+    }
 
     setCargando(true)
     try {
-      const datos = await registerRequest({
-        nombre,
-        tipoDocumento: tipoDocumentoRegistro,
-        identificador:
-          tipoDocumentoRegistro === 'SIN_DOCUMENTO' ? undefined : identificadorRegistro,
-        correo,
-        contrasena: contrasenaRegistro,
-        telefono: telefono || undefined,
-      })
+      const datos = await registerRequest(
+        {
+          nombre,
+          tipoDocumento: tipoDocumentoRegistro,
+          identificador:
+            tipoDocumentoRegistro === 'SIN_DOCUMENTO' ? undefined : identificadorRegistro,
+          correo,
+          contrasena: contrasenaRegistro,
+          telefono: telefono || undefined,
+          fechaNacimiento,
+        },
+        { carnetIdentidad, papelesAntecedentes },
+      )
 
       setMensaje(
         tipoDocumentoRegistro === 'SIN_DOCUMENTO'
@@ -120,6 +139,9 @@ function Login() {
       setCorreo('')
       setTelefono('')
       setContrasenaRegistro('')
+      setFechaNacimiento('')
+      setCarnetIdentidad(null)
+      setPapelesAntecedentes(null)
       setModo('login')
     } catch (err) {
       setError(mensajeDeError(err))
@@ -241,6 +263,43 @@ function Login() {
               modo="registro"
               idPrefix="registro"
             />
+
+            <label className={labelClass} htmlFor="fecha-nacimiento">
+              Fecha de nacimiento
+            </label>
+            <input
+              id="fecha-nacimiento"
+              type="date"
+              value={fechaNacimiento}
+              onChange={(e) => setFechaNacimiento(e.target.value)}
+              className={inputClass}
+            />
+
+            {requiereArchivosIdentidad && (
+              <>
+                <label className={labelClass} htmlFor="carnet-identidad">
+                  Carnet de identidad
+                </label>
+                <input
+                  id="carnet-identidad"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setCarnetIdentidad(e.target.files?.[0] ?? null)}
+                  className={inputClass}
+                />
+
+                <label className={labelClass} htmlFor="papeles-antecedentes">
+                  Papeles de antecedentes
+                </label>
+                <input
+                  id="papeles-antecedentes"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setPapelesAntecedentes(e.target.files?.[0] ?? null)}
+                  className={inputClass}
+                />
+              </>
+            )}
 
             <label className={labelClass} htmlFor="correo">
               Correo electrónico

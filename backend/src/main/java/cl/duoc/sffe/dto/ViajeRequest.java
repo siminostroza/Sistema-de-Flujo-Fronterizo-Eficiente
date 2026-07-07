@@ -22,6 +22,7 @@ public record ViajeRequest(
         @Size(max = 100, message = "El país de origen no puede superar los 100 caracteres")
         String paisOrigen,
 
+        @NotBlank(message = "El motivo del viaje es obligatorio")
         @Size(max = 200, message = "El motivo de viaje no puede superar los 200 caracteres")
         String motivoViaje
 ) {

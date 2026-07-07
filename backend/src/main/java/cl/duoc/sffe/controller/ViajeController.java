@@ -8,7 +8,9 @@ import cl.duoc.sffe.dto.ViajeResponse;
 import cl.duoc.sffe.service.ViajeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,17 +18,22 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 /**
  * Endpoints de expedientes de viaje del pasajero autenticado (RF02, RF03, RF04).
  * El identificador del usuario se obtiene del JWT validado por
- * {@link cl.duoc.sffe.security.JwtAuthenticationFilter}.
+ * {@link cl.duoc.sffe.security.JwtAuthenticationFilter}. Restringidos a rol
+ * PASAJERO: son endpoints de autoservicio del pasajero, no del funcionario
+ * (aunque un funcionario también sea un {@code Usuario} autenticado válido).
  */
 @RestController
 @RequestMapping("/api/viajes")
+@PreAuthorize("hasRole('PASAJERO')")
 public class ViajeController {
 
     private final ViajeService viajeService;
@@ -66,15 +73,26 @@ public class ViajeController {
         return ResponseEntity.ok(viajeService.actualizar(authentication.getName(), id, request));
     }
 
-    /** Agrega un menor de edad al expediente (RF02). */
-    @PostMapping("/{id}/menores")
+    /**
+     * Agrega un menor de edad al expediente (RF02). Multipart: la parte
+     * {@code datos} lleva el JSON de {@link MenorRequest}; el carnet de
+     * identidad y los papeles de antecedentes son obligatorios, y el permiso
+     * notarial lo es solo si {@code requiereAutorizacion = true} (validado en
+     * {@code ViajeService}).
+     */
+    @PostMapping(value = "/{id}/menores", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ViajeResponse> agregarMenor(
             @PathVariable Integer id,
-            @Valid @RequestBody MenorRequest request,
+            @Valid @RequestPart("datos") MenorRequest request,
+            @RequestPart(value = "carnetIdentidad", required = false) MultipartFile carnetIdentidad,
+            @RequestPart(value = "papelesAntecedentes", required = false) MultipartFile papelesAntecedentes,
+            @RequestPart(value = "permisoNotarial", required = false) MultipartFile permisoNotarial,
             Authentication authentication) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(viajeService.agregarMenor(authentication.getName(), id, request));
+                .body(viajeService.agregarMenor(
+                        authentication.getName(), id, request,
+                        carnetIdentidad, papelesAntecedentes, permisoNotarial));
     }
 
     /** Registra o actualiza el vehículo asociado al expediente (RF03). */

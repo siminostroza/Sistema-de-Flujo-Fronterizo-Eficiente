@@ -17,10 +17,13 @@ import cl.duoc.sffe.repository.MenorRepository;
 import cl.duoc.sffe.repository.UsuarioRepository;
 import cl.duoc.sffe.repository.VehiculoRepository;
 import cl.duoc.sffe.repository.ViajeRepository;
+import cl.duoc.sffe.util.DocumentoValidator;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -36,17 +39,23 @@ public class ViajeService {
     private final VehiculoRepository vehiculoRepository;
     private final DeclaracionSagRepository declaracionSagRepository;
     private final UsuarioRepository usuarioRepository;
+    private final DocumentoValidator documentoValidator;
+    private final FileStorageService fileStorageService;
 
     public ViajeService(ViajeRepository viajeRepository,
                         MenorRepository menorRepository,
                         VehiculoRepository vehiculoRepository,
                         DeclaracionSagRepository declaracionSagRepository,
-                        UsuarioRepository usuarioRepository) {
+                        UsuarioRepository usuarioRepository,
+                        DocumentoValidator documentoValidator,
+                        FileStorageService fileStorageService) {
         this.viajeRepository = viajeRepository;
         this.menorRepository = menorRepository;
         this.vehiculoRepository = vehiculoRepository;
         this.declaracionSagRepository = declaracionSagRepository;
         this.usuarioRepository = usuarioRepository;
+        this.documentoValidator = documentoValidator;
+        this.fileStorageService = fileStorageService;
     }
 
     /** Crea un nuevo expediente de viaje asociado al usuario autenticado (RF02). */
@@ -96,18 +105,59 @@ public class ViajeService {
         return ViajeResponse.from(viajeRepository.save(viaje));
     }
 
-    /** Agrega un menor de edad al expediente de viaje (RF02). */
+    /**
+     * Agrega un menor de edad al expediente de viaje (RF02). El RUT se valida
+     * con el mismo algoritmo módulo 11 que el identificador del usuario, la
+     * fecha de nacimiento debe corresponder a una persona menor de 18 años a
+     * la fecha de ingreso, y el carnet de identidad y los papeles de
+     * antecedentes son obligatorios; el permiso notarial es obligatorio solo
+     * cuando {@code requiereAutorizacion = true}.
+     */
     @Transactional
-    public ViajeResponse agregarMenor(String identificador, Integer idViaje, MenorRequest request) {
+    public ViajeResponse agregarMenor(String identificador, Integer idViaje, MenorRequest request,
+                                       MultipartFile carnetIdentidad,
+                                       MultipartFile papelesAntecedentes,
+                                       MultipartFile permisoNotarial) {
         Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+
+        String rutNormalizado = documentoValidator.normalizar(request.rut());
+        if (!documentoValidator.validarRut(rutNormalizado)) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST, "El RUT del menor no es válido");
+        }
+
+        LocalDate fechaNacimiento = request.fechaNacimiento();
+        if (fechaNacimiento.isAfter(LocalDate.now())) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "La fecha de nacimiento del menor no es válida");
+        }
+        boolean esMenorDeEdad = fechaNacimiento.isAfter(viaje.getFechaIngreso().minusYears(18));
+        if (!esMenorDeEdad) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "La fecha de nacimiento indicada corresponde a una persona mayor de edad");
+        }
+
+        boolean requiereAutorizacion =
+                request.requiereAutorizacion() != null && request.requiereAutorizacion();
+
+        String carnetPath = fileStorageService.guardarObligatorio(
+                carnetIdentidad, "menores", "el carnet de identidad del menor");
+        String antecedentesPath = fileStorageService.guardarObligatorio(
+                papelesAntecedentes, "menores", "los papeles de antecedentes del menor");
+        String permisoPath = requiereAutorizacion
+                ? fileStorageService.guardarObligatorio(
+                        permisoNotarial, "menores", "el permiso notarial del menor")
+                : fileStorageService.guardarOpcional(
+                        permisoNotarial, "menores", "el permiso notarial del menor");
 
         Menor menor = Menor.builder()
                 .viaje(viaje)
                 .nombre(request.nombre())
-                .rut(request.rut())
-                .fechaNacimiento(request.fechaNacimiento())
-                .requiereAutorizacion(
-                        request.requiereAutorizacion() != null && request.requiereAutorizacion())
+                .rut(rutNormalizado)
+                .fechaNacimiento(fechaNacimiento)
+                .requiereAutorizacion(requiereAutorizacion)
+                .carnetIdentidadPath(carnetPath)
+                .papelesAntecedentesPath(antecedentesPath)
+                .permisoNotarialPath(permisoPath)
                 .build();
 
         menorRepository.save(menor);
@@ -137,6 +187,11 @@ public class ViajeService {
         if (esRemolque && principal == null) {
             throw new ViajeException(HttpStatus.CONFLICT,
                     "Debes registrar el vehículo principal antes del remolque");
+        }
+
+        if (!esRemolque && (isBlank(request.marca()) || isBlank(request.modelo()) || request.anio() == null)) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "Marca, modelo y año son obligatorios para el vehículo principal");
         }
 
         Vehiculo vehiculo = vehiculoRepository
@@ -190,6 +245,10 @@ public class ViajeService {
         viaje.setDeclaracionSag(declaracionSagRepository.save(sag));
 
         return ViajeResponse.from(viaje);
+    }
+
+    private boolean isBlank(String valor) {
+        return valor == null || valor.isBlank();
     }
 
     private Usuario obtenerUsuario(String identificador) {
