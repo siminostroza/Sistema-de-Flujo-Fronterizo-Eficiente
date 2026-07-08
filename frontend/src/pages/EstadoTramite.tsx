@@ -18,6 +18,7 @@ import {
 import { obtenerQR, type QrResponse } from '../services/qrService'
 import { estadoBadge } from '../utils/estado'
 import { etiquetaTipoDocumento } from '../utils/documento'
+import AdjuntoViewer from '../components/ui/AdjuntoViewer'
 
 const cardClass = 'mb-4 rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
@@ -245,6 +246,80 @@ function EstadoTramite() {
                   : 'Pendiente'}
               </div>
             </div>
+          </div>
+        )}
+
+        {viaje && (
+          <div className={cardClass}>
+            <div className={cardTitleClass}>Documentos adjuntos</div>
+
+            {sesion?.tipoDocumento !== 'SIN_DOCUMENTO' && (
+              <div className={filaClass}>
+                <div className={labelFilaClass}>Mis documentos</div>
+                <div className="mt-1.5 flex gap-3">
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/usuario/carnet-identidad`}
+                    etiqueta="Mi carnet de identidad"
+                  />
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/usuario/papeles-antecedentes`}
+                    etiqueta="Mis papeles de antecedentes"
+                  />
+                </div>
+              </div>
+            )}
+
+            {[principal, remolque].filter(Boolean).map((veh) => (
+              <div key={veh!.idVehiculo} className={filaClass}>
+                <div className={labelFilaClass}>
+                  Permiso de circulación {veh!.esRemolque ? '(remolque)' : ''} — {veh!.patente}
+                </div>
+                <div className="mt-1.5">
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/vehiculos/${veh!.idVehiculo}/permiso-circulacion`}
+                    etiqueta={`Permiso de circulación — ${veh!.patente}`}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {viaje.mascotas.map((mascota) => (
+              <div key={mascota.idMascota} className={filaClass}>
+                <div className={labelFilaClass}>{mascota.tipoAnimal} · chip {mascota.numeroChip}</div>
+                <div className="mt-1.5 flex gap-3">
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/mascotas/${mascota.idMascota}/certificado-chip`}
+                    etiqueta={`Certificado del chip — ${mascota.tipoAnimal}`}
+                  />
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/mascotas/${mascota.idMascota}/carnet-vacunacion`}
+                    etiqueta={`Carnet de vacunación — ${mascota.tipoAnimal}`}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {viaje.menores.map((menor) => (
+              <div key={menor.idMenor} className={filaClass}>
+                <div className={labelFilaClass}>{menor.nombre} · {menor.rut}</div>
+                <div className="mt-1.5 flex flex-wrap gap-3">
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/carnet-identidad`}
+                    etiqueta={`Carnet de identidad — ${menor.nombre}`}
+                  />
+                  <AdjuntoViewer
+                    url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/papeles-antecedentes`}
+                    etiqueta={`Papeles de antecedentes — ${menor.nombre}`}
+                  />
+                  {menor.requiereAutorizacion && (
+                    <AdjuntoViewer
+                      url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/permiso-notarial`}
+                      etiqueta={`Permiso notarial — ${menor.nombre}`}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

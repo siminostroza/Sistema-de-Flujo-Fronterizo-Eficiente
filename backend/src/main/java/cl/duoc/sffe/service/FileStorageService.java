@@ -57,6 +57,41 @@ public class FileStorageService {
         return guardar(archivo, subcarpeta, etiqueta);
     }
 
+    /**
+     * Lee de disco un archivo previamente guardado con {@link #guardar} y
+     * devuelve su contenido junto al content-type derivado de la extensión,
+     * para que el pasajero y el funcionario puedan visualizarlo.
+     */
+    public ArchivoDescargado cargar(String rutaRelativa, String etiqueta) {
+        if (rutaRelativa == null || rutaRelativa.isBlank()) {
+            throw new ArchivoException(HttpStatus.NOT_FOUND, "No hay " + etiqueta + " adjuntado");
+        }
+
+        Path destino = directorioBase.resolve(rutaRelativa).normalize();
+        if (!destino.startsWith(directorioBase)) {
+            throw new ArchivoException(HttpStatus.BAD_REQUEST, "Ruta de archivo inválida");
+        }
+        if (!Files.isRegularFile(destino)) {
+            throw new ArchivoException(HttpStatus.NOT_FOUND, "El archivo ya no está disponible");
+        }
+
+        try {
+            byte[] contenido = Files.readAllBytes(destino);
+            return new ArchivoDescargado(contenido, mimeDe(extensionDe(rutaRelativa)));
+        } catch (IOException e) {
+            throw new ArchivoException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo leer " + etiqueta);
+        }
+    }
+
+    private String mimeDe(String extension) {
+        return switch (extension) {
+            case "pdf" -> "application/pdf";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            default -> "application/octet-stream";
+        };
+    }
+
     private String guardar(MultipartFile archivo, String subcarpeta, String etiqueta) {
         if (archivo.getSize() > TAMANO_MAXIMO_BYTES) {
             throw new ArchivoException(HttpStatus.BAD_REQUEST,

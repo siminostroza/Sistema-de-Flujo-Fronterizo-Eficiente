@@ -8,6 +8,7 @@ import {
 import { mensajeDeError } from '../services/authService'
 import { estadoBadge } from '../utils/estado'
 import { etiquetaTipoDocumento } from '../utils/documento'
+import AdjuntoViewer from '../components/ui/AdjuntoViewer'
 
 const cardClass = 'rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
@@ -264,7 +265,7 @@ function FiscalizacionQr() {
                   ⚠️ Este ingreso ya fue autorizado por Aduana. Puedes registrar tu validación igualmente.
                 </div>
               )}
-              <ExpedientePanel expediente={expediente} />
+              <ExpedientePanel expediente={expediente} codigo={codigoValidado} />
             </>
           )}
         </div>
@@ -273,10 +274,16 @@ function FiscalizacionQr() {
   )
 }
 
+/** Construye la URL base de archivos del expediente fiscalizado, por su QR (RF01, RF02, RF03, RF05). */
+function baseArchivos(codigo: string): string {
+  return `/fiscalizacion/${codigo}/archivos`
+}
+
 /** Render del expediente consolidado del viajero, con datos enmascarados (RNF10). */
-function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
+function ExpedientePanel({ expediente, codigo }: { expediente: ExpedienteResponse; codigo: string }) {
   const badge = estadoBadge(expediente.estadoViaje)
   const detalle = detalleSag(expediente.declaracionSag?.productos)
+  const base = baseArchivos(codigo)
 
   return (
     <div className="flex flex-col gap-4">
@@ -299,6 +306,15 @@ function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
             valor={`${expediente.identificadorEnmascarado} (${etiquetaTipoDocumento(expediente.tipoDocumento)})`}
           />
         </div>
+        {expediente.tipoDocumento !== 'SIN_DOCUMENTO' && (
+          <div className="mt-3 flex gap-3">
+            <AdjuntoViewer url={`${base}/usuario/carnet-identidad`} etiqueta="Carnet de identidad del pasajero" />
+            <AdjuntoViewer
+              url={`${base}/usuario/papeles-antecedentes`}
+              etiqueta="Papeles de antecedentes del pasajero"
+            />
+          </div>
+        )}
       </section>
 
       {/* Viaje */}
@@ -329,10 +345,17 @@ function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
                   valor={`${veh.marca ?? '—'} ${veh.modelo ?? ''}`.trim()}
                 />
                 <Campo label="Año" valor={veh.anio ? String(veh.anio) : '—'} />
-                <Campo
-                  label="Permiso de circulación"
-                  valor={veh.permisoCirculacion ? '✓ Adjuntado' : '✗ No adjuntado'}
-                />
+                <div>
+                  <div className={labelFilaClass}>Permiso de circulación</div>
+                  {veh.permisoCirculacion ? (
+                    <AdjuntoViewer
+                      url={`${base}/vehiculos/${veh.idVehiculo}/permiso-circulacion`}
+                      etiqueta={`Permiso de circulación — ${veh.patente}`}
+                    />
+                  ) : (
+                    <span className="text-[15px] text-gov-black">✗ No adjuntado</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -350,14 +373,28 @@ function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
               <div key={mascota.idMascota} className="grid grid-cols-2 gap-3">
                 <Campo label="Tipo de animal" valor={mascota.tipoAnimal} />
                 <Campo label="Número de chip" valor={mascota.numeroChip} />
-                <Campo
-                  label="Certificado del chip"
-                  valor={mascota.certificadoChip ? '✓ Adjuntado' : '✗ No adjuntado'}
-                />
-                <Campo
-                  label="Carnet de vacunación"
-                  valor={mascota.carnetVacunacion ? '✓ Adjuntado' : '✗ No adjuntado'}
-                />
+                <div>
+                  <div className={labelFilaClass}>Certificado del chip</div>
+                  {mascota.certificadoChip ? (
+                    <AdjuntoViewer
+                      url={`${base}/mascotas/${mascota.idMascota}/certificado-chip`}
+                      etiqueta={`Certificado del chip — ${mascota.tipoAnimal}`}
+                    />
+                  ) : (
+                    <span className="text-[15px] text-gov-black">✗ No adjuntado</span>
+                  )}
+                </div>
+                <div>
+                  <div className={labelFilaClass}>Carnet de vacunación</div>
+                  {mascota.carnetVacunacion ? (
+                    <AdjuntoViewer
+                      url={`${base}/mascotas/${mascota.idMascota}/carnet-vacunacion`}
+                      etiqueta={`Carnet de vacunación — ${mascota.tipoAnimal}`}
+                    />
+                  ) : (
+                    <span className="text-[15px] text-gov-black">✗ No adjuntado</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -414,18 +451,36 @@ function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
           Menores acompañantes
         </div>
         {expediente.menores.length > 0 ? (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-2">
             {expediente.menores.map((menor) => (
               <li
                 key={menor.idMenor}
                 className="rounded-md bg-gov-neutral px-3 py-2 text-[14px] text-gov-black"
               >
-                {menor.nombre} · {menor.rut}
-                {menor.requiereAutorizacion && (
-                  <span className="ml-2 text-[12px] font-semibold text-gov-secondary">
-                    requiere autorización
-                  </span>
-                )}
+                <div className="mb-2">
+                  {menor.nombre} · {menor.rut}
+                  {menor.requiereAutorizacion && (
+                    <span className="ml-2 text-[12px] font-semibold text-gov-secondary">
+                      requiere autorización
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <AdjuntoViewer
+                    url={`${base}/menores/${menor.idMenor}/carnet-identidad`}
+                    etiqueta={`Carnet de identidad — ${menor.nombre}`}
+                  />
+                  <AdjuntoViewer
+                    url={`${base}/menores/${menor.idMenor}/papeles-antecedentes`}
+                    etiqueta={`Papeles de antecedentes — ${menor.nombre}`}
+                  />
+                  {menor.requiereAutorizacion && (
+                    <AdjuntoViewer
+                      url={`${base}/menores/${menor.idMenor}/permiso-notarial`}
+                      etiqueta={`Permiso notarial — ${menor.nombre}`}
+                    />
+                  )}
+                </div>
               </li>
             ))}
           </ul>

@@ -6,8 +6,11 @@ import cl.duoc.sffe.dto.SagRequest;
 import cl.duoc.sffe.dto.VehiculoRequest;
 import cl.duoc.sffe.dto.ViajeRequest;
 import cl.duoc.sffe.dto.ViajeResponse;
+import cl.duoc.sffe.service.ArchivoDescargado;
+import cl.duoc.sffe.service.ArchivoService;
 import cl.duoc.sffe.service.ViajeService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,9 +41,11 @@ import java.util.List;
 public class ViajeController {
 
     private final ViajeService viajeService;
+    private final ArchivoService archivoService;
 
-    public ViajeController(ViajeService viajeService) {
+    public ViajeController(ViajeService viajeService, ArchivoService archivoService) {
         this.viajeService = viajeService;
+        this.archivoService = archivoService;
     }
 
     /** Crea un nuevo expediente de viaje (RF02). */
@@ -138,5 +143,47 @@ public class ViajeController {
             @Valid @RequestBody SagRequest request,
             Authentication authentication) {
         return ResponseEntity.ok(viajeService.guardarSag(authentication.getName(), id, request));
+    }
+
+    /**
+     * Visualización de archivos adjuntos del propio expediente: carnet de
+     * identidad y papeles de antecedentes del pasajero (RF01). Devuelve el
+     * binario con el content-type correcto para mostrarlo inline (imagen o PDF).
+     */
+    @GetMapping("/{id}/archivos/usuario/{campo}")
+    public ResponseEntity<byte[]> archivoUsuario(
+            @PathVariable Integer id, @PathVariable String campo, Authentication authentication) {
+        return responder(archivoService.archivoUsuarioPropio(authentication.getName(), id, campo));
+    }
+
+    /** Visualización de los archivos adjuntos de un menor del propio expediente (RF02). */
+    @GetMapping("/{id}/archivos/menores/{idMenor}/{campo}")
+    public ResponseEntity<byte[]> archivoMenor(
+            @PathVariable Integer id, @PathVariable Integer idMenor, @PathVariable String campo,
+            Authentication authentication) {
+        return responder(archivoService.archivoMenorPropio(authentication.getName(), id, idMenor, campo));
+    }
+
+    /** Visualización del permiso de circulación de un vehículo del propio expediente (RF03). */
+    @GetMapping("/{id}/archivos/vehiculos/{idVehiculo}/{campo}")
+    public ResponseEntity<byte[]> archivoVehiculo(
+            @PathVariable Integer id, @PathVariable Integer idVehiculo, @PathVariable String campo,
+            Authentication authentication) {
+        return responder(archivoService.archivoVehiculoPropio(authentication.getName(), id, idVehiculo, campo));
+    }
+
+    /** Visualización de los archivos adjuntos de una mascota del propio expediente (RF02). */
+    @GetMapping("/{id}/archivos/mascotas/{idMascota}/{campo}")
+    public ResponseEntity<byte[]> archivoMascota(
+            @PathVariable Integer id, @PathVariable Integer idMascota, @PathVariable String campo,
+            Authentication authentication) {
+        return responder(archivoService.archivoMascotaPropio(authentication.getName(), id, idMascota, campo));
+    }
+
+    private ResponseEntity<byte[]> responder(ArchivoDescargado archivo) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(archivo.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .body(archivo.contenido());
     }
 }
