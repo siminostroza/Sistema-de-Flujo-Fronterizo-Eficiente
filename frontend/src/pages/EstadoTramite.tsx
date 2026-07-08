@@ -10,6 +10,10 @@ import {
   misViajes,
   numeroExpediente,
   obtenerViaje,
+  reemplazarArchivoMascota,
+  reemplazarArchivoMenor,
+  reemplazarArchivoUsuario,
+  reemplazarArchivoVehiculo,
   setIdViajeActivo,
   vehiculoPrincipal,
   vehiculoRemolque,
@@ -19,12 +23,41 @@ import { obtenerQR, type QrResponse } from '../services/qrService'
 import { estadoBadge } from '../utils/estado'
 import { etiquetaTipoDocumento } from '../utils/documento'
 import AdjuntoViewer from '../components/ui/AdjuntoViewer'
+import ReemplazarArchivoButton from '../components/ui/ReemplazarArchivoButton'
 
 const cardClass = 'mb-4 rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
 const filaClass = 'mb-3 last:mb-0'
 const labelFilaClass = 'text-[13px] font-semibold text-gov-gray-a'
 const valorFilaClass = 'text-[15px] text-gov-black'
+
+/**
+ * Miniatura de un adjunto ya guardado, con un botón "Reemplazar" opcional
+ * (RF01/RF02/RF03: solo mientras el viaje sigue PENDIENTE). Cada instancia
+ * lleva su propia versión local: al reemplazar, solo esa miniatura se
+ * refresca (no todo el resto de los adjuntos de la página).
+ */
+function AdjuntoConReemplazo({
+  url,
+  etiqueta,
+  puedeReemplazar,
+  onSubir,
+}: {
+  url: string
+  etiqueta: string
+  puedeReemplazar: boolean
+  onSubir: (archivo: File) => Promise<void>
+}) {
+  const [version, setVersion] = useState(0)
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <AdjuntoViewer key={version} url={url} etiqueta={etiqueta} />
+      {puedeReemplazar && (
+        <ReemplazarArchivoButton onSubir={onSubir} onReemplazado={() => setVersion((v) => v + 1)} />
+      )}
+    </div>
+  )
+}
 
 /**
  * Estado del trámite y código QR de un expediente (RF04, RF05). El viaje a
@@ -252,18 +285,27 @@ function EstadoTramite() {
         {viaje && (
           <div className={cardClass}>
             <div className={cardTitleClass}>Documentos adjuntos</div>
+            {viaje.estado === 'PENDIENTE' && (
+              <p className="mb-3 text-[12px] text-gov-gray-b">
+                Puedes reemplazar un documento mientras tu expediente siga pendiente de fiscalización.
+              </p>
+            )}
 
             {sesion?.tipoDocumento !== 'SIN_DOCUMENTO' && (
               <div className={filaClass}>
                 <div className={labelFilaClass}>Mis documentos</div>
                 <div className="mt-1.5 flex gap-3">
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/usuario/carnet-identidad`}
                     etiqueta="Mi carnet de identidad"
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'carnet-identidad', archivo)}
                   />
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/usuario/papeles-antecedentes`}
                     etiqueta="Mis papeles de antecedentes"
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'papeles-antecedentes', archivo)}
                   />
                 </div>
               </div>
@@ -275,9 +317,13 @@ function EstadoTramite() {
                   Permiso de circulación {veh!.esRemolque ? '(remolque)' : ''} — {veh!.patente}
                 </div>
                 <div className="mt-1.5">
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/vehiculos/${veh!.idVehiculo}/permiso-circulacion`}
                     etiqueta={`Permiso de circulación — ${veh!.patente}`}
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) =>
+                      reemplazarArchivoVehiculo(viaje.idViaje, veh!.idVehiculo, 'permiso-circulacion', archivo)
+                    }
                   />
                 </div>
               </div>
@@ -287,13 +333,21 @@ function EstadoTramite() {
               <div key={mascota.idMascota} className={filaClass}>
                 <div className={labelFilaClass}>{mascota.tipoAnimal} · chip {mascota.numeroChip}</div>
                 <div className="mt-1.5 flex gap-3">
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/mascotas/${mascota.idMascota}/certificado-chip`}
                     etiqueta={`Certificado del chip — ${mascota.tipoAnimal}`}
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) =>
+                      reemplazarArchivoMascota(viaje.idViaje, mascota.idMascota, 'certificado-chip', archivo)
+                    }
                   />
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/mascotas/${mascota.idMascota}/carnet-vacunacion`}
                     etiqueta={`Carnet de vacunación — ${mascota.tipoAnimal}`}
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) =>
+                      reemplazarArchivoMascota(viaje.idViaje, mascota.idMascota, 'carnet-vacunacion', archivo)
+                    }
                   />
                 </div>
               </div>
@@ -303,18 +357,30 @@ function EstadoTramite() {
               <div key={menor.idMenor} className={filaClass}>
                 <div className={labelFilaClass}>{menor.nombre} · {menor.rut}</div>
                 <div className="mt-1.5 flex flex-wrap gap-3">
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/carnet-identidad`}
                     etiqueta={`Carnet de identidad — ${menor.nombre}`}
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) =>
+                      reemplazarArchivoMenor(viaje.idViaje, menor.idMenor, 'carnet-identidad', archivo)
+                    }
                   />
-                  <AdjuntoViewer
+                  <AdjuntoConReemplazo
                     url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/papeles-antecedentes`}
                     etiqueta={`Papeles de antecedentes — ${menor.nombre}`}
+                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                    onSubir={(archivo) =>
+                      reemplazarArchivoMenor(viaje.idViaje, menor.idMenor, 'papeles-antecedentes', archivo)
+                    }
                   />
                   {menor.requiereAutorizacion && (
-                    <AdjuntoViewer
+                    <AdjuntoConReemplazo
                       url={`/viajes/${viaje.idViaje}/archivos/menores/${menor.idMenor}/permiso-notarial`}
                       etiqueta={`Permiso notarial — ${menor.nombre}`}
+                      puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                      onSubir={(archivo) =>
+                        reemplazarArchivoMenor(viaje.idViaje, menor.idMenor, 'permiso-notarial', archivo)
+                      }
                     />
                   )}
                 </div>

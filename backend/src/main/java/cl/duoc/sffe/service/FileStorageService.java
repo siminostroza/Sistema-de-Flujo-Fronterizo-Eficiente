@@ -1,6 +1,8 @@
 package cl.duoc.sffe.service;
 
 import cl.duoc.sffe.exception.ArchivoException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
 
+    private static final Logger log = LoggerFactory.getLogger(FileStorageService.class);
     private static final Set<String> EXTENSIONES_PERMITIDAS = Set.of("pdf", "jpg", "jpeg", "png");
     private static final long TAMANO_MAXIMO_BYTES = 5L * 1024 * 1024; // 5 MB
 
@@ -80,6 +83,31 @@ public class FileStorageService {
             return new ArchivoDescargado(contenido, mimeDe(extensionDe(rutaRelativa)));
         } catch (IOException e) {
             throw new ArchivoException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo leer " + etiqueta);
+        }
+    }
+
+    /**
+     * Reemplaza un archivo ya guardado: valida y guarda el nuevo, y solo si
+     * eso funciona borra el anterior de disco (best-effort; un fallo al
+     * borrar el viejo no revierte el reemplazo, solo queda un huérfano).
+     */
+    public String reemplazar(String rutaAnterior, MultipartFile nuevoArchivo, String subcarpeta, String etiqueta) {
+        String nuevaRuta = guardarObligatorio(nuevoArchivo, subcarpeta, etiqueta);
+        eliminarSilencioso(rutaAnterior);
+        return nuevaRuta;
+    }
+
+    private void eliminarSilencioso(String rutaRelativa) {
+        if (rutaRelativa == null || rutaRelativa.isBlank()) {
+            return;
+        }
+        try {
+            Path destino = directorioBase.resolve(rutaRelativa).normalize();
+            if (destino.startsWith(directorioBase)) {
+                Files.deleteIfExists(destino);
+            }
+        } catch (IOException e) {
+            log.warn("No se pudo eliminar el archivo reemplazado: {}", rutaRelativa, e);
         }
     }
 

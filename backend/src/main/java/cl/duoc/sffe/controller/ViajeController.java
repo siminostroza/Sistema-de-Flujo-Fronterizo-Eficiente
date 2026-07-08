@@ -187,4 +187,44 @@ public class ViajeController {
                 .header("X-Content-Type-Options", "nosniff")
                 .body(archivo.contenido());
     }
+
+    /**
+     * Reemplaza el carnet de identidad o los papeles de antecedentes ya
+     * subidos por el pasajero (RF01), por ejemplo si adjuntó el archivo
+     * equivocado. Solo mientras el viaje sigue PENDIENTE.
+     */
+    @PutMapping(value = "/{id}/archivos/usuario/{campo}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> reemplazarArchivoUsuario(
+            @PathVariable Integer id, @PathVariable String campo,
+            @RequestPart("archivo") MultipartFile archivo, Authentication authentication) {
+        archivoService.reemplazarArchivoUsuario(authentication.getName(), id, campo, archivo);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Reemplaza un archivo ya subido de un menor del expediente (RF02). Solo mientras el viaje sigue PENDIENTE. */
+    @PutMapping(value = "/{id}/archivos/menores/{idMenor}/{campo}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> reemplazarArchivoMenor(
+            @PathVariable Integer id, @PathVariable Integer idMenor, @PathVariable String campo,
+            @RequestPart("archivo") MultipartFile archivo, Authentication authentication) {
+        archivoService.reemplazarArchivoMenor(authentication.getName(), id, idMenor, campo, archivo);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Reemplaza el permiso de circulación de un vehículo del expediente (RF03). Solo mientras el viaje sigue PENDIENTE. */
+    @PutMapping(value = "/{id}/archivos/vehiculos/{idVehiculo}/{campo}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> reemplazarArchivoVehiculo(
+            @PathVariable Integer id, @PathVariable Integer idVehiculo, @PathVariable String campo,
+            @RequestPart("archivo") MultipartFile archivo, Authentication authentication) {
+        archivoService.reemplazarArchivoVehiculo(authentication.getName(), id, idVehiculo, campo, archivo);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Reemplaza un archivo ya subido de una mascota del expediente (RF02). Solo mientras el viaje sigue PENDIENTE. */
+    @PutMapping(value = "/{id}/archivos/mascotas/{idMascota}/{campo}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> reemplazarArchivoMascota(
+            @PathVariable Integer id, @PathVariable Integer idMascota, @PathVariable String campo,
+            @RequestPart("archivo") MultipartFile archivo, Authentication authentication) {
+        archivoService.reemplazarArchivoMascota(authentication.getName(), id, idMascota, campo, archivo);
+        return ResponseEntity.noContent().build();
+    }
 }

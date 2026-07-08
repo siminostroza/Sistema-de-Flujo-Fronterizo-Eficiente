@@ -1,6 +1,7 @@
 package cl.duoc.sffe.service;
 
 import cl.duoc.sffe.exception.ArchivoException;
+import cl.duoc.sffe.model.EstadoViaje;
 import cl.duoc.sffe.model.Mascota;
 import cl.duoc.sffe.model.Menor;
 import cl.duoc.sffe.model.Usuario;
@@ -15,16 +16,24 @@ import cl.duoc.sffe.repository.ViajeRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Visualización de los archivos adjuntos de un expediente (carnet de
- * identidad, papeles de antecedentes, permiso notarial, permiso de
- * circulación, documentos de mascotas). Dos vías de acceso, cada una en su
- * propia transacción para no arrastrar entidades detached entre servicios:
- * el pasajero dueño del viaje ({@code *Propio}, por {@code idViaje}) y
- * cualquier funcionario de fiscalización ({@code *PorQr}, por el código QR
- * ya escaneado) — mismo criterio que {@code ExpedienteResponse}: todo rol de
- * fiscalización ve el expediente completo, sin restricción adicional por rol.
+ * Visualización y reemplazo de los archivos adjuntos de un expediente
+ * (carnet de identidad, papeles de antecedentes, permiso notarial, permiso
+ * de circulación, documentos de mascotas).
+ *
+ * <p>Dos vías de <b>lectura</b>, cada una en su propia transacción para no
+ * arrastrar entidades detached entre servicios: el pasajero dueño del viaje
+ * ({@code *Propio}, por {@code idViaje}) y cualquier funcionario de
+ * fiscalización ({@code *PorQr}, por el código QR ya escaneado) — mismo
+ * criterio que {@code ExpedienteResponse}: todo rol de fiscalización ve el
+ * expediente completo, sin restricción adicional por rol.</p>
+ *
+ * <p>El <b>reemplazo</b> de un archivo ya guardado ({@code reemplazar*}) es
+ * exclusivo del pasajero dueño del viaje, y solo mientras el viaje sigue
+ * {@code PENDIENTE}: una vez que Aduana resolvió (APROBADO/RECHAZADO), los
+ * documentos que sustentaron esa decisión ya no se pueden alterar.</p>
  */
 @Service
 public class ArchivoService {
@@ -73,6 +82,76 @@ public class ArchivoService {
     @Transactional(readOnly = true)
     public ArchivoDescargado archivoMascotaPropio(String identificador, Integer idViaje, Integer idMascota, String campo) {
         return archivoMascota(obtenerViajeDelUsuario(identificador, idViaje), idMascota, campo);
+    }
+
+    // ---------- Reemplazo del pasajero, dueño del viaje, solo si sigue PENDIENTE ----------
+
+    @Transactional
+    public void reemplazarArchivoUsuario(String identificador, Integer idViaje, String campo, MultipartFile nuevo) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Usuario titular = viaje.getUsuario();
+        switch (campo) {
+            case "carnet-identidad" -> titular.setCarnetIdentidadPath(
+                    fileStorageService.reemplazar(titular.getCarnetIdentidadPath(), nuevo, "usuarios", "tu carnet de identidad"));
+            case "papeles-antecedentes" -> titular.setPapelesAntecedentesPath(
+                    fileStorageService.reemplazar(titular.getPapelesAntecedentesPath(), nuevo, "usuarios", "tus papeles de antecedentes"));
+            default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
+        }
+        usuarioRepository.save(titular);
+    }
+
+    @Transactional
+    public void reemplazarArchivoMenor(String identificador, Integer idViaje, Integer idMenor, String campo, MultipartFile nuevo) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Menor menor = menorDelViaje(viaje, idMenor);
+        switch (campo) {
+            case "carnet-identidad" -> menor.setCarnetIdentidadPath(
+                    fileStorageService.reemplazar(menor.getCarnetIdentidadPath(), nuevo, "menores", "el carnet de identidad del menor"));
+            case "papeles-antecedentes" -> menor.setPapelesAntecedentesPath(
+                    fileStorageService.reemplazar(menor.getPapelesAntecedentesPath(), nuevo, "menores", "los papeles de antecedentes del menor"));
+            case "permiso-notarial" -> menor.setPermisoNotarialPath(
+                    fileStorageService.reemplazar(menor.getPermisoNotarialPath(), nuevo, "menores", "el permiso notarial del menor"));
+            default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
+        }
+        menorRepository.save(menor);
+    }
+
+    @Transactional
+    public void reemplazarArchivoVehiculo(String identificador, Integer idViaje, Integer idVehiculo, String campo, MultipartFile nuevo) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Vehiculo vehiculo = vehiculoDelViaje(viaje, idVehiculo);
+        switch (campo) {
+            case "permiso-circulacion" -> vehiculo.setPermisoCirculacionPath(
+                    fileStorageService.reemplazar(vehiculo.getPermisoCirculacionPath(), nuevo, "vehiculos", "el permiso de circulación del vehículo"));
+            default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
+        }
+        vehiculoRepository.save(vehiculo);
+    }
+
+    @Transactional
+    public void reemplazarArchivoMascota(String identificador, Integer idViaje, Integer idMascota, String campo, MultipartFile nuevo) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Mascota mascota = mascotaDelViaje(viaje, idMascota);
+        switch (campo) {
+            case "certificado-chip" -> mascota.setCertificadoChipPath(
+                    fileStorageService.reemplazar(mascota.getCertificadoChipPath(), nuevo, "mascotas", "el certificado del chip de la mascota"));
+            case "carnet-vacunacion" -> mascota.setCarnetVacunacionPath(
+                    fileStorageService.reemplazar(mascota.getCarnetVacunacionPath(), nuevo, "mascotas", "el carnet de vacunación de la mascota"));
+            default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
+        }
+        mascotaRepository.save(mascota);
+    }
+
+    /** Solo se puede modificar documentación mientras el viaje no ha sido fiscalizado. */
+    private void verificarPendiente(Viaje viaje) {
+        if (viaje.getEstado() != EstadoViaje.PENDIENTE) {
+            throw new ArchivoException(HttpStatus.CONFLICT,
+                    "No puedes modificar documentos de un expediente que ya fue fiscalizado");
+        }
     }
 
     // ---------- Acceso del funcionario, por QR ya escaneado ----------
@@ -129,11 +208,7 @@ public class ArchivoService {
     }
 
     private ArchivoDescargado archivoMenor(Viaje viaje, Integer idMenor, String campo) {
-        Menor menor = menorRepository.findById(idMenor)
-                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "El menor no existe"));
-        if (!menor.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
-            throw new ArchivoException(HttpStatus.NOT_FOUND, "El menor no pertenece a este expediente");
-        }
+        Menor menor = menorDelViaje(viaje, idMenor);
         String ruta = switch (campo) {
             case "carnet-identidad" -> menor.getCarnetIdentidadPath();
             case "papeles-antecedentes" -> menor.getPapelesAntecedentesPath();
@@ -144,11 +219,7 @@ public class ArchivoService {
     }
 
     private ArchivoDescargado archivoVehiculo(Viaje viaje, Integer idVehiculo, String campo) {
-        Vehiculo vehiculo = vehiculoRepository.findById(idVehiculo)
-                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "El vehículo no existe"));
-        if (!vehiculo.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
-            throw new ArchivoException(HttpStatus.NOT_FOUND, "El vehículo no pertenece a este expediente");
-        }
+        Vehiculo vehiculo = vehiculoDelViaje(viaje, idVehiculo);
         String ruta = switch (campo) {
             case "permiso-circulacion" -> vehiculo.getPermisoCirculacionPath();
             default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
@@ -157,16 +228,41 @@ public class ArchivoService {
     }
 
     private ArchivoDescargado archivoMascota(Viaje viaje, Integer idMascota, String campo) {
-        Mascota mascota = mascotaRepository.findById(idMascota)
-                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "La mascota no existe"));
-        if (!mascota.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
-            throw new ArchivoException(HttpStatus.NOT_FOUND, "La mascota no pertenece a este expediente");
-        }
+        Mascota mascota = mascotaDelViaje(viaje, idMascota);
         String ruta = switch (campo) {
             case "certificado-chip" -> mascota.getCertificadoChipPath();
             case "carnet-vacunacion" -> mascota.getCarnetVacunacionPath();
             default -> throw new ArchivoException(HttpStatus.BAD_REQUEST, "Documento no reconocido");
         };
         return fileStorageService.cargar(ruta, "el documento solicitado");
+    }
+
+    // ---------- Resolución de la entidad hija, verificando que pertenezca al viaje ----------
+
+    private Menor menorDelViaje(Viaje viaje, Integer idMenor) {
+        Menor menor = menorRepository.findById(idMenor)
+                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "El menor no existe"));
+        if (!menor.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
+            throw new ArchivoException(HttpStatus.NOT_FOUND, "El menor no pertenece a este expediente");
+        }
+        return menor;
+    }
+
+    private Vehiculo vehiculoDelViaje(Viaje viaje, Integer idVehiculo) {
+        Vehiculo vehiculo = vehiculoRepository.findById(idVehiculo)
+                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "El vehículo no existe"));
+        if (!vehiculo.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
+            throw new ArchivoException(HttpStatus.NOT_FOUND, "El vehículo no pertenece a este expediente");
+        }
+        return vehiculo;
+    }
+
+    private Mascota mascotaDelViaje(Viaje viaje, Integer idMascota) {
+        Mascota mascota = mascotaRepository.findById(idMascota)
+                .orElseThrow(() -> new ArchivoException(HttpStatus.NOT_FOUND, "La mascota no existe"));
+        if (!mascota.getViaje().getIdViaje().equals(viaje.getIdViaje())) {
+            throw new ArchivoException(HttpStatus.NOT_FOUND, "La mascota no pertenece a este expediente");
+        }
+        return mascota;
     }
 }

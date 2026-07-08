@@ -226,6 +226,39 @@ export async function guardarSag(idViaje: number, payload: SagPayload): Promise<
   return data
 }
 
+/**
+ * PUT /api/viajes/{id}/archivos/... — reemplaza un archivo ya subido (por
+ * ejemplo, si se adjuntó el documento equivocado). Solo permitido mientras
+ * el viaje sigue PENDIENTE.
+ */
+async function subirReemplazo(url: string, archivo: File): Promise<void> {
+  const formData = new FormData()
+  formData.append('archivo', archivo)
+  await api.put(url, formData)
+}
+
+export function reemplazarArchivoUsuario(idViaje: number, campo: string, archivo: File): Promise<void> {
+  return subirReemplazo(`/viajes/${idViaje}/archivos/usuario/${campo}`, archivo)
+}
+
+export function reemplazarArchivoMenor(
+  idViaje: number, idMenor: number, campo: string, archivo: File,
+): Promise<void> {
+  return subirReemplazo(`/viajes/${idViaje}/archivos/menores/${idMenor}/${campo}`, archivo)
+}
+
+export function reemplazarArchivoVehiculo(
+  idViaje: number, idVehiculo: number, campo: string, archivo: File,
+): Promise<void> {
+  return subirReemplazo(`/viajes/${idViaje}/archivos/vehiculos/${idVehiculo}/${campo}`, archivo)
+}
+
+export function reemplazarArchivoMascota(
+  idViaje: number, idMascota: number, campo: string, archivo: File,
+): Promise<void> {
+  return subirReemplazo(`/viajes/${idViaje}/archivos/mascotas/${idMascota}/${campo}`, archivo)
+}
+
 const STORAGE_ID_VIAJE = 'sffe_id_viaje_activo'
 
 /** Recupera el id del expediente de viaje en curso (flujo de registro de varios pasos). */
