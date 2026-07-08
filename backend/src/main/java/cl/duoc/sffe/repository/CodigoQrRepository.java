@@ -1,6 +1,7 @@
 package cl.duoc.sffe.repository;
 
 import cl.duoc.sffe.model.CodigoQr;
+import cl.duoc.sffe.model.EstadoQr;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,4 +17,7 @@ public interface CodigoQrRepository extends JpaRepository<CodigoQr, Integer> {
     Optional<CodigoQr> findByCodigo(String codigo);
 
     Optional<CodigoQr> findByViajeIdViaje(Integer idViaje);
+
+    /** Códigos QR aún no resueltos: proxy de "pasajeros en cola" para el monitoreo (RF10). */
+    long countByEstado(EstadoQr estado);
 }

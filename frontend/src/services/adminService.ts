@@ -41,3 +41,17 @@ export async function descargarReporteExcel(): Promise<void> {
   const { data } = await api.get('/admin/reportes/excel', { responseType: 'blob' })
   descargar(data, 'sffe-reporte.xlsx')
 }
+
+/** Estado operativo del paso fronterizo, calculado a partir de datos reales (RF10). */
+export interface MonitoreoEstado {
+  pendientesEnCola: number
+  ocupacionPorcentaje: number
+  tiempoEsperaPromedioMinutos: number
+  alertaActiva: boolean
+}
+
+/** GET /api/monitoreo — estado operativo actual del paso fronterizo (RF10). */
+export async function obtenerMonitoreo(): Promise<MonitoreoEstado> {
+  const { data } = await api.get<MonitoreoEstado>('/monitoreo')
+  return data
+}

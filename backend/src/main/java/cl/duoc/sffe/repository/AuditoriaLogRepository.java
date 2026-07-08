@@ -21,4 +21,7 @@ public interface AuditoriaLogRepository extends JpaRepository<AuditoriaLog, Inte
 
     /** Auditoría completa del sistema para ADMIN, más recientes primero (RF09). */
     List<AuditoriaLog> findAllByOrderByFechaDesc();
+
+    /** Últimas resoluciones (APROBADO/RECHAZADO), para promediar el tiempo de espera (RF10). */
+    List<AuditoriaLog> findTop20ByAccionInOrderByFechaDesc(List<String> acciones);
 }

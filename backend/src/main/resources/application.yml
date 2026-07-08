@@ -75,6 +75,11 @@ sffe:
     # contraseña que se envían por email (debe ser resoluble por el navegador
     # del pasajero, no una URL interna del contenedor).
     url: ${SFFE_FRONTEND_URL:http://localhost:5173}
+  monitoreo:
+    # Cantidad de códigos QR ACTIVOS (pasajeros en cola) equivalente al 100%
+    # de ocupación del paso fronterizo (RF10). No hay un valor oficial real
+    # para Los Libertadores en este prototipo; es un umbral configurable.
+    capacidad-maxima: ${SFFE_MONITOREO_CAPACIDAD_MAXIMA:50}
 
 logging:
   level:
