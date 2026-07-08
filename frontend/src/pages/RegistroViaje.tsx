@@ -617,7 +617,8 @@ function RegistroViaje() {
                     <button
                       type="button"
                       onClick={() => quitarFilaMenor(index)}
-                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary"
+                      disabled={cargando}
+                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
                     >
                       Quitar
                     </button>
@@ -629,6 +630,7 @@ function RegistroViaje() {
                     placeholder="Nombre completo"
                     value={menor.nombre}
                     onChange={(e) => actualizarFilaMenor(index, 'nombre', e.target.value)}
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -638,6 +640,7 @@ function RegistroViaje() {
                     placeholder="12345678-9"
                     value={menor.rut}
                     onChange={(e) => actualizarFilaMenor(index, 'rut', e.target.value)}
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -648,6 +651,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarFilaMenor(index, 'fechaNacimiento', e.target.value)
                     }
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -657,6 +661,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarFilaMenor(index, 'requiereAutorizacion', e.target.value === 'true')
                     }
+                    disabled={cargando}
                     className={inputClass}
                   >
                     <option value="false">No requiere</option>
@@ -670,6 +675,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMenor(index, 'carnetIdentidad', e.target.files?.[0] ?? null)
                     }
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -680,6 +686,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMenor(index, 'papelesAntecedentes', e.target.files?.[0] ?? null)
                     }
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -692,6 +699,7 @@ function RegistroViaje() {
                         onChange={(e) =>
                           actualizarArchivoMenor(index, 'permisoNotarial', e.target.files?.[0] ?? null)
                         }
+                        disabled={cargando}
                         className={inputClass}
                       />
                     </>
@@ -702,7 +710,8 @@ function RegistroViaje() {
               <button
                 type="button"
                 onClick={agregarFilaMenor}
-                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary"
+                disabled={cargando}
+                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary disabled:cursor-default disabled:opacity-60"
               >
                 + Agregar menor
               </button>
@@ -739,7 +748,8 @@ function RegistroViaje() {
                     <button
                       type="button"
                       onClick={() => quitarFilaMascota(index)}
-                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary"
+                      disabled={cargando}
+                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
                     >
                       Quitar
                     </button>
@@ -751,6 +761,7 @@ function RegistroViaje() {
                     placeholder="Ej: Perro, Gato"
                     value={mascota.tipoAnimal}
                     onChange={(e) => actualizarFilaMascota(index, 'tipoAnimal', e.target.value)}
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -760,6 +771,7 @@ function RegistroViaje() {
                     placeholder="Ej: 981000000000000"
                     value={mascota.numeroChip}
                     onChange={(e) => actualizarFilaMascota(index, 'numeroChip', e.target.value)}
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -770,6 +782,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMascota(index, 'certificadoChip', e.target.files?.[0] ?? null)
                     }
+                    disabled={cargando}
                     className={inputClass}
                   />
 
@@ -780,6 +793,7 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMascota(index, 'carnetVacunacion', e.target.files?.[0] ?? null)
                     }
+                    disabled={cargando}
                     className={inputClass}
                   />
                 </div>
@@ -788,7 +802,8 @@ function RegistroViaje() {
               <button
                 type="button"
                 onClick={agregarFilaMascota}
-                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary"
+                disabled={cargando}
+                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary disabled:cursor-default disabled:opacity-60"
               >
                 + Agregar mascota
               </button>

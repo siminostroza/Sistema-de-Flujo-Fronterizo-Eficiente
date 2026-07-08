@@ -1,5 +1,6 @@
 package cl.duoc.sffe.service;
 
+import cl.duoc.sffe.dto.AuditoriaAdminItemResponse;
 import cl.duoc.sffe.model.AuditoriaLog;
 import cl.duoc.sffe.model.EstadoViaje;
 import cl.duoc.sffe.model.Viaje;
@@ -47,6 +48,20 @@ public class ReporteService {
     public ReporteService(ViajeRepository viajeRepository, AuditoriaLogRepository auditoriaLogRepository) {
         this.viajeRepository = viajeRepository;
         this.auditoriaLogRepository = auditoriaLogRepository;
+    }
+
+    /**
+     * Auditoría completa del sistema para ADMIN (RF09), más reciente primero.
+     * Transaccional: {@code AuditoriaAdminItemResponse.from} lee la relación
+     * LAZY {@code AuditoriaLog.usuario}; sin sesión de Hibernate abierta
+     * (spring.jpa.open-in-view=false) eso lanza LazyInitializationException.
+     */
+    @Transactional(readOnly = true)
+    public List<AuditoriaAdminItemResponse> auditoriaCompleta() {
+        return auditoriaLogRepository.findAllByOrderByFechaDesc()
+                .stream()
+                .map(AuditoriaAdminItemResponse::from)
+                .toList();
     }
 
     /** Genera el reporte en PDF (RF06). Transaccional: las relaciones lazy (usuario del viaje) se resuelven acá. */
@@ -233,9 +248,26 @@ public class ReporteService {
             contenido.beginText();
             contenido.setFont(fuente, tamano);
             contenido.newLineAtOffset(MARGEN, y);
-            contenido.showText(texto);
+            try {
+                contenido.showText(texto);
+            } catch (IllegalArgumentException e) {
+                // Texto libre del usuario (ej. "Destino") con un carácter fuera de
+                // WinAnsiEncoding (emoji, CJK, etc.): degrada ese carácter a "?" en
+                // vez de tumbar el reporte completo. Los acentos españoles y la raya
+                // "—" SÍ están cubiertos por WinAnsiEncoding y no pasan por acá.
+                contenido.showText(aWinAnsiSeguro(texto));
+            }
             contenido.endText();
             y -= tamano + 6;
+        }
+
+        private static String aWinAnsiSeguro(String texto) {
+            StringBuilder seguro = new StringBuilder(texto.length());
+            for (int i = 0; i < texto.length(); i++) {
+                char c = texto.charAt(i);
+                seguro.append(c < 256 ? c : '?');
+            }
+            return seguro.toString();
         }
     }
 }

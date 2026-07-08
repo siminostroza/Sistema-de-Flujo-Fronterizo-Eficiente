@@ -1,7 +1,6 @@
 package cl.duoc.sffe.controller;
 
 import cl.duoc.sffe.dto.AuditoriaAdminItemResponse;
-import cl.duoc.sffe.repository.AuditoriaLogRepository;
 import cl.duoc.sffe.service.ReporteService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -25,22 +24,16 @@ import java.util.List;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
-    private final AuditoriaLogRepository auditoriaLogRepository;
     private final ReporteService reporteService;
 
-    public AdminController(AuditoriaLogRepository auditoriaLogRepository, ReporteService reporteService) {
-        this.auditoriaLogRepository = auditoriaLogRepository;
+    public AdminController(ReporteService reporteService) {
         this.reporteService = reporteService;
     }
 
     /** Auditoría completa del sistema, más reciente primero (RF09). */
     @GetMapping("/auditoria")
     public ResponseEntity<List<AuditoriaAdminItemResponse>> auditoria() {
-        List<AuditoriaAdminItemResponse> items = auditoriaLogRepository.findAllByOrderByFechaDesc()
-                .stream()
-                .map(AuditoriaAdminItemResponse::from)
-                .toList();
-        return ResponseEntity.ok(items);
+        return ResponseEntity.ok(reporteService.auditoriaCompleta());
     }
 
     /** Reporte de trámites y fiscalizaciones en PDF (RF06). */

@@ -34,10 +34,19 @@ public class LoginAttemptService {
         return Math.max(restante, 0);
     }
 
-    /** Registra un intento fallido; si alcanza el máximo, inicia el bloqueo temporal. */
+    /**
+     * Registra un intento fallido; si alcanza el máximo, inicia el bloqueo
+     * temporal. Si el bloqueo anterior ya expiró, arranca el conteo de nuevo
+     * en vez de seguir sumando sobre el valor viejo: si no, un solo intento
+     * fallido justo después de que expira un bloqueo volvía a bloquear de
+     * inmediato, en vez de dar 5 intentos frescos.
+     */
     public void registrarFallo(String identificador) {
         intentosPorIdentificador.compute(clave(identificador), (id, actual) -> {
-            int fallos = (actual == null ? 0 : actual.fallos().get()) + 1;
+            boolean bloqueoExpirado = actual != null
+                    && actual.bloqueadoHasta() != null
+                    && actual.bloqueadoHasta().isBefore(Instant.now());
+            int fallos = (actual == null || bloqueoExpirado) ? 1 : actual.fallos().get() + 1;
             Instant bloqueadoHasta = fallos >= MAX_INTENTOS
                     ? Instant.now().plusMillis(BLOQUEO_MS)
                     : null;
