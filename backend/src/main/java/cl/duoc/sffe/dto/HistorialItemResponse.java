@@ -13,7 +13,8 @@ public record HistorialItemResponse(
         String codigoQr,
         String identificadorEnmascarado,
         String accion,
-        String modulo
+        String modulo,
+        String observaciones
 ) {
 
     public static HistorialItemResponse from(AuditoriaLog log) {
@@ -22,7 +23,8 @@ public record HistorialItemResponse(
                 log.getCodigoQr(),
                 log.getIdentificadorEnmascarado(),
                 log.getAccion(),
-                log.getModulo()
+                log.getModulo(),
+                log.getObservaciones()
         );
     }
 }

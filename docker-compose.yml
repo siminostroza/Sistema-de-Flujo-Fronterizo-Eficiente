@@ -37,10 +37,25 @@ services:
       SFFE_JWT_SECRET: cambiar-este-secreto-en-produccion-por-uno-de-al-menos-256-bits
       SFFE_JWT_EXPIRATION_MS: "86400000"
       SFFE_UPLOAD_DIR: /app/uploads
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: "1025"
+      SFFE_MAIL_FROM: no-reply@sffe.cl
     ports:
       - "8080:8080"
     volumes:
       - backend_uploads:/app/uploads
+    networks:
+      - sffe-net
+
+  # Servidor SMTP de pruebas (RF05): captura los correos de aprobación/rechazo
+  # sin necesidad de credenciales reales. UI web para revisarlos en :8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sffe-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
     networks:
       - sffe-net
 

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS viajes (
   paso_fronterizo  VARCHAR(100),
   motivo_viaje  VARCHAR(200),
   estado        ENUM('PENDIENTE','APROBADO','RECHAZADO') NOT NULL DEFAULT 'PENDIENTE',
+  motivo_rechazo TEXT,                                  -- RF05: detalle de Aduana, visible en el ticket del pasajero
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_viajes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -70,6 +71,20 @@ CREATE TABLE IF NOT EXISTS menores (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
+-- mascotas  (entidad Mascota) — RF02   (relación 1:N con viaje)
+-- Visible para toda fiscalización (Aduana, PDI, SAG).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS mascotas (
+  id_mascota                INT AUTO_INCREMENT PRIMARY KEY,
+  id_viaje                  INT NOT NULL,
+  tipo_animal               VARCHAR(50) NOT NULL,
+  numero_chip               VARCHAR(50) NOT NULL,
+  certificado_chip_path     VARCHAR(255) NOT NULL,
+  carnet_vacunacion_path    VARCHAR(255) NOT NULL,
+  CONSTRAINT fk_mascotas_viaje FOREIGN KEY (id_viaje) REFERENCES viajes (id_viaje)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
 -- vehiculos  (entidad Vehiculo) — RF03   (relación 1:N con viaje:
 -- hasta un vehículo principal y un carro de arrastre/remolque)
 -- ---------------------------------------------------------------------
@@ -82,6 +97,7 @@ CREATE TABLE IF NOT EXISTS vehiculos (
   anio                 INT,
   es_remolque          BOOLEAN NOT NULL DEFAULT FALSE,     -- TRUE si es carro de arrastre/remolque
   vehiculo_principal_id INT,                               -- vehículo principal al que se vincula el remolque (nullable)
+  permiso_circulacion_path VARCHAR(255) NOT NULL,          -- RF03: obligatorio, visible para Aduana y PDI
   CONSTRAINT fk_vehiculos_viaje FOREIGN KEY (id_viaje) REFERENCES viajes (id_viaje),
   CONSTRAINT fk_vehiculos_principal FOREIGN KEY (vehiculo_principal_id) REFERENCES vehiculos (id_vehiculo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -133,6 +149,7 @@ CREATE TABLE IF NOT EXISTS auditoria_logs (
   modulo     VARCHAR(50)  NOT NULL,
   codigo_qr  VARCHAR(255),                             -- RF05: QR fiscalizado (nullable)
   identificador_enmascarado VARCHAR(30),               -- RF05/RNF10: pasajero enmascarado (nullable)
+  observaciones TEXT,                                  -- RF05: motivo (obligatorio en RECHAZADO/SOSPECHA)
   fecha      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_auditoria_logs_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

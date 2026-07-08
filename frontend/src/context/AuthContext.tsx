@@ -14,6 +14,7 @@ export interface Sesion {
   nombre: string
   identificador: string
   tipoDocumento: TipoDocumento
+  correo: string
 }
 
 interface AuthContextType {
@@ -28,6 +29,7 @@ const STORAGE_ROL = 'sffe_rol'
 const STORAGE_NOMBRE = 'sffe_nombre'
 const STORAGE_IDENTIFICADOR = 'sffe_identificador'
 const STORAGE_TIPO_DOCUMENTO = 'sffe_tipo_documento'
+const STORAGE_CORREO = 'sffe_correo'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -38,8 +40,9 @@ function leerSesionInicial(): Sesion | null {
   const nombre = localStorage.getItem(STORAGE_NOMBRE)
   const identificador = localStorage.getItem(STORAGE_IDENTIFICADOR)
   const tipoDocumento = localStorage.getItem(STORAGE_TIPO_DOCUMENTO) as TipoDocumento | null
+  const correo = localStorage.getItem(STORAGE_CORREO) ?? ''
   if (token && rol && nombre && identificador && tipoDocumento) {
-    return { token, rol, nombre, identificador, tipoDocumento }
+    return { token, rol, nombre, identificador, tipoDocumento, correo }
   }
   return null
 }
@@ -53,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_NOMBRE, datos.nombre)
     localStorage.setItem(STORAGE_IDENTIFICADOR, datos.identificador)
     localStorage.setItem(STORAGE_TIPO_DOCUMENTO, datos.tipoDocumento)
+    localStorage.setItem(STORAGE_CORREO, datos.correo ?? '')
     setSesion(datos)
   }
 
@@ -62,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_NOMBRE)
     localStorage.removeItem(STORAGE_IDENTIFICADOR)
     localStorage.removeItem(STORAGE_TIPO_DOCUMENTO)
+    localStorage.removeItem(STORAGE_CORREO)
     setSesion(null)
   }
 

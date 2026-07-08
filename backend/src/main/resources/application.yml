@@ -16,6 +16,19 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 15MB
+  # RF05: notificación por correo al aprobar/rechazar un ingreso. En desarrollo
+  # apunta al contenedor mailpit del docker-compose (sin autenticación).
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_STARTTLS:false}
 
 server:
   port: 8080
@@ -39,8 +52,11 @@ sffe:
     secret: ${SFFE_JWT_SECRET:secreto-solo-para-desarrollo-local-no-usar-en-produccion}
     expiration-ms: ${SFFE_JWT_EXPIRATION_MS:86400000}
   upload:
-    # Carnet de identidad, papeles de antecedentes y permiso notarial (RF01, RF02).
+    # Carnet de identidad, papeles de antecedentes, permiso notarial, permiso
+    # de circulación y documentos de mascotas (RF01, RF02, RF03).
     dir: ${SFFE_UPLOAD_DIR:uploads}
+  mail:
+    from: ${SFFE_MAIL_FROM:no-reply@sffe.cl}
 
 logging:
   level:

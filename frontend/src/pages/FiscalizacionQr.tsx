@@ -44,6 +44,19 @@ function botonesPorRol(rol: string): BotonDecision[] {
   }
 }
 
+/** RECHAZADO y SOSPECHA exigen que el funcionario detalle el motivo (RF05). */
+function requiereMotivo(decision: DecisionFiscalizacion): boolean {
+  return decision === 'RECHAZADO' || decision === 'SOSPECHA'
+}
+
+const ETIQUETAS_DECISION: Record<DecisionFiscalizacion, string> = {
+  APROBADO: 'autorizar el ingreso',
+  RECHAZADO: 'el motivo del rechazo',
+  SOSPECHA: 'el motivo de la sospecha',
+  VALIDACION_IDENTIDAD: 'validar la identidad',
+  VALIDACION_SAG: 'validar la declaración SAG',
+}
+
 /** Extrae el campo "detalle" del JSON de productos de la declaración SAG, si existe. */
 function detalleSag(productos: string | null | undefined): string {
   if (!productos) {
@@ -105,6 +118,10 @@ function FiscalizacionQr() {
     }
     setError('')
     setConfirmacion('')
+    if (requiereMotivo(decision) && !observaciones.trim()) {
+      setError(`Debes indicar ${ETIQUETAS_DECISION[decision]} antes de continuar`)
+      return
+    }
     setResolviendo(true)
     try {
       const respuesta = await resolverFiscalizacion(
@@ -197,14 +214,14 @@ function FiscalizacionQr() {
               ) : (
                 <>
                   <label className="mb-1 block text-[13px] font-semibold text-gov-gray-a">
-                    Observaciones (opcional)
+                    Observaciones — obligatorias para "Denegar Ingreso" y "Marcar Sospecha"
                   </label>
                   <textarea
                     value={observaciones}
                     onChange={(e) => setObservaciones(e.target.value)}
                     rows={3}
                     maxLength={500}
-                    placeholder="Notas de la fiscalización…"
+                    placeholder="Detalla el motivo si vas a rechazar o marcar sospecha…"
                     className="mb-3 w-full resize-none rounded-md border border-gov-accent px-3 py-2.5 text-[14px] outline-none focus:border-gov-primary"
                   />
                   <div className="flex flex-col gap-2">
@@ -312,11 +329,40 @@ function ExpedientePanel({ expediente }: { expediente: ExpedienteResponse }) {
                   valor={`${veh.marca ?? '—'} ${veh.modelo ?? ''}`.trim()}
                 />
                 <Campo label="Año" valor={veh.anio ? String(veh.anio) : '—'} />
+                <Campo
+                  label="Permiso de circulación"
+                  valor={veh.permisoCirculacion ? '✓ Adjuntado' : '✗ No adjuntado'}
+                />
               </div>
             ))}
           </div>
         ) : (
           <p className="text-[14px] text-gov-gray-b">Sin vehículo registrado.</p>
+        )}
+      </section>
+
+      {/* Mascotas */}
+      <section className="border-t border-gov-neutral pt-3">
+        <div className="mb-2 text-[13px] font-bold text-gov-tertiary">Mascotas</div>
+        {expediente.mascotas.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {expediente.mascotas.map((mascota) => (
+              <div key={mascota.idMascota} className="grid grid-cols-2 gap-3">
+                <Campo label="Tipo de animal" valor={mascota.tipoAnimal} />
+                <Campo label="Número de chip" valor={mascota.numeroChip} />
+                <Campo
+                  label="Certificado del chip"
+                  valor={mascota.certificadoChip ? '✓ Adjuntado' : '✗ No adjuntado'}
+                />
+                <Campo
+                  label="Carnet de vacunación"
+                  valor={mascota.carnetVacunacion ? '✓ Adjuntado' : '✗ No adjuntado'}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[14px] text-gov-gray-b">Sin mascotas registradas.</p>
         )}
       </section>
 

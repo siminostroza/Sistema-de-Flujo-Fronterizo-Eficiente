@@ -145,6 +145,12 @@ function EstadoTramite() {
             {badge.texto}
             {viaje ? ` — ${numeroExpediente(viaje.idViaje)}` : ''}
           </div>
+          {viaje?.estado === 'RECHAZADO' && viaje.motivoRechazo && (
+            <div className="mt-3 rounded-md bg-estado-rechazado-bg px-3 py-2.5 text-[13px] text-estado-rechazado-text">
+              <span className="font-semibold">Motivo del rechazo: </span>
+              {viaje.motivoRechazo}
+            </div>
+          )}
         </div>
 
         <div className={cardClass}>

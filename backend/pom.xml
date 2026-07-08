@@ -71,6 +71,12 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- Notificaciones por correo de resoluciones de fiscalización (RF05) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Generación de códigos QR (RF04, RF05) -->
         <dependency>
             <groupId>com.google.zxing</groupId>

@@ -56,6 +56,14 @@ public class AuditoriaLog {
     @Column(name = "identificador_enmascarado", length = 30)
     private String identificadorEnmascarado;
 
+    /**
+     * Motivo detallado registrado por el funcionario (RF05): obligatorio para
+     * RECHAZADO y SOSPECHA, opcional para el resto de las decisiones.
+     */
+    @Lob
+    @Column(name = "observaciones", columnDefinition = "TEXT")
+    private String observaciones;
+
     @CreationTimestamp
     @Column(name = "fecha", nullable = false, updatable = false)
     private LocalDateTime fecha;

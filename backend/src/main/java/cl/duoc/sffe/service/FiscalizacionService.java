@@ -41,15 +41,18 @@ public class FiscalizacionService {
     private final ViajeRepository viajeRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaLogRepository auditoriaLogRepository;
+    private final EmailService emailService;
 
     public FiscalizacionService(CodigoQrRepository codigoQrRepository,
                                 ViajeRepository viajeRepository,
                                 UsuarioRepository usuarioRepository,
-                                AuditoriaLogRepository auditoriaLogRepository) {
+                                AuditoriaLogRepository auditoriaLogRepository,
+                                EmailService emailService) {
         this.codigoQrRepository = codigoQrRepository;
         this.viajeRepository = viajeRepository;
         this.usuarioRepository = usuarioRepository;
         this.auditoriaLogRepository = auditoriaLogRepository;
+        this.emailService = emailService;
     }
 
     /**
@@ -69,6 +72,7 @@ public class FiscalizacionService {
                                           Rol rolFuncionario) {
         DecisionFiscalizacion decision = parseDecision(decisionTexto);
         validarPermiso(decision, rolFuncionario);
+        validarObservacionesRequeridas(decision, observaciones);
 
         CodigoQr codigoQr = codigoQrRepository.findByCodigo(codigo)
                 .orElseThrow(() -> new FiscalizacionException(
@@ -82,13 +86,33 @@ public class FiscalizacionService {
         Usuario funcionario = obtenerUsuario(identificadorFuncionario);
         Viaje viaje = codigoQr.getViaje();
 
-        String mensaje = aplicarDecision(decision, viaje, codigoQr);
+        String mensaje = aplicarDecision(decision, viaje, codigoQr, observaciones);
         viajeRepository.save(viaje);
         codigoQrRepository.save(codigoQr);
 
-        registrarAuditoria(decision, funcionario, codigoQr, viaje.getUsuario());
+        registrarAuditoria(decision, funcionario, codigoQr, viaje.getUsuario(), observaciones);
+
+        if (decision == DecisionFiscalizacion.APROBADO || decision == DecisionFiscalizacion.RECHAZADO) {
+            emailService.notificarResolucion(viaje.getUsuario(), viaje, viaje.getMotivoRechazo());
+        }
 
         return new FiscalizacionResponse(mensaje, viaje.getEstado(), codigoQr.getEstado());
+    }
+
+    /**
+     * RECHAZADO exige que el funcionario detalle el motivo del rechazo (lo
+     * verá el pasajero en su ticket y en el correo); SOSPECHA exige un motivo
+     * breve. El resto de las decisiones no lo requieren.
+     */
+    private void validarObservacionesRequeridas(DecisionFiscalizacion decision, String observaciones) {
+        boolean requiereMotivo =
+                decision == DecisionFiscalizacion.RECHAZADO || decision == DecisionFiscalizacion.SOSPECHA;
+        if (requiereMotivo && (observaciones == null || observaciones.isBlank())) {
+            String etiqueta = decision == DecisionFiscalizacion.RECHAZADO
+                    ? "el motivo del rechazo"
+                    : "el motivo de la sospecha";
+            throw new FiscalizacionException(HttpStatus.BAD_REQUEST, "Debes indicar " + etiqueta);
+        }
     }
 
     /**
@@ -108,16 +132,20 @@ public class FiscalizacionService {
     }
 
     /** Aplica los efectos de la decisión sobre el viaje y el QR; devuelve el mensaje de confirmación. */
-    private String aplicarDecision(DecisionFiscalizacion decision, Viaje viaje, CodigoQr codigoQr) {
+    private String aplicarDecision(DecisionFiscalizacion decision, Viaje viaje, CodigoQr codigoQr,
+                                    String observaciones) {
         return switch (decision) {
             case APROBADO -> {
                 viaje.setEstado(EstadoViaje.APROBADO);
+                // Se limpia un motivo de rechazo previo: ya no aplica si ahora se aprueba.
+                viaje.setMotivoRechazo(null);
                 codigoQr.setEstado(EstadoQr.USADO);
                 yield "Ingreso autorizado. El expediente quedó APROBADO.";
             }
             case RECHAZADO -> {
                 // El QR se mantiene ACTIVO para permitir reintentos del pasajero.
                 viaje.setEstado(EstadoViaje.RECHAZADO);
+                viaje.setMotivoRechazo(observaciones);
                 yield "Ingreso denegado. El expediente quedó RECHAZADO.";
             }
             case SOSPECHA -> "Sospecha registrada. No se modificó el estado del expediente.";
@@ -161,7 +189,8 @@ public class FiscalizacionService {
     private void registrarAuditoria(DecisionFiscalizacion decision,
                                     Usuario funcionario,
                                     CodigoQr codigoQr,
-                                    Usuario pasajero) {
+                                    Usuario pasajero,
+                                    String observaciones) {
         AuditoriaLog log = AuditoriaLog.builder()
                 .usuario(funcionario)
                 .accion(decision.name())
@@ -169,6 +198,7 @@ public class FiscalizacionService {
                 .codigoQr(codigoQr.getCodigo())
                 .identificadorEnmascarado(MaskUtil.maskIdentificador(
                         pasajero.getIdentificador(), pasajero.getTipoDocumento()))
+                .observaciones(observaciones)
                 .build();
         auditoriaLogRepository.save(log);
     }

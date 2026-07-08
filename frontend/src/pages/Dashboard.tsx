@@ -144,6 +144,13 @@ function Dashboard() {
                     </div>
                   </div>
 
+                  {viaje.estado === 'RECHAZADO' && viaje.motivoRechazo && (
+                    <div className="mt-2 rounded-md bg-estado-rechazado-bg px-2.5 py-2 text-[12px] text-estado-rechazado-text">
+                      <span className="font-semibold">Motivo: </span>
+                      {viaje.motivoRechazo}
+                    </div>
+                  )}
+
                   {viaje.qr ? (
                     <button
                       onClick={() => verQr(viaje)}

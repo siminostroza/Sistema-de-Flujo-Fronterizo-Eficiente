@@ -55,6 +55,15 @@ public class Viaje {
     @Builder.Default
     private EstadoViaje estado = EstadoViaje.PENDIENTE;
 
+    /**
+     * Motivo detallado por el que Aduana rechazó el ingreso (RF05). Lo
+     * completa el funcionario al resolver RECHAZADO y lo ve el pasajero en su
+     * ticket; se limpia si el expediente se vuelve a aprobar más adelante.
+     */
+    @Lob
+    @Column(name = "motivo_rechazo", columnDefinition = "TEXT")
+    private String motivoRechazo;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,6 +75,10 @@ public class Viaje {
     @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Vehiculo> vehiculos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Mascota> mascotas = new ArrayList<>();
 
     @OneToOne(mappedBy = "viaje", cascade = CascadeType.ALL, orphanRemoval = true)
     private DeclaracionSag declaracionSag;

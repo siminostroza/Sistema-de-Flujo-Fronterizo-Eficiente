@@ -1,5 +1,5 @@
 import api from './api'
-import type { EstadoViaje, MenorInfo, SagInfo, VehiculoInfo } from './viajeService'
+import type { EstadoViaje, MascotaInfo, MenorInfo, SagInfo, VehiculoInfo } from './viajeService'
 import type { TipoDocumento } from '../utils/documento'
 
 export type EstadoQr = 'ACTIVO' | 'USADO' | 'EXPIRADO'
@@ -22,6 +22,7 @@ export interface ExpedienteResponse {
   estadoViaje: EstadoViaje
   estadoQr: EstadoQr
   vehiculos: VehiculoInfo[]
+  mascotas: MascotaInfo[]
   declaracionSag: SagInfo | null
   menores: MenorInfo[]
 }

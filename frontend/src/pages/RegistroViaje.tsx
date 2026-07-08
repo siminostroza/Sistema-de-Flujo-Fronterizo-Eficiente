@@ -6,6 +6,7 @@ import Footer from '../components/layout/Footer'
 import WizardStepper from '../components/ui/WizardStepper'
 import { mensajeDeError } from '../services/authService'
 import {
+  agregarMascota,
   agregarMenor,
   actualizarViaje,
   crearViaje,
@@ -17,6 +18,7 @@ import {
   setIdViajeActivo,
   vehiculoPrincipal,
   vehiculoRemolque,
+  type MascotaInfo,
   type MenorInfo,
 } from '../services/viajeService'
 import { obtenerQR, type QrResponse } from '../services/qrService'
@@ -66,6 +68,20 @@ function esMenorDeEdad(fechaNacimiento: string, fechaIngreso: string): boolean {
   return nacimiento > limite
 }
 
+interface MascotaForm {
+  tipoAnimal: string
+  numeroChip: string
+  certificadoChip: File | null
+  carnetVacunacion: File | null
+}
+
+const mascotaVacia: MascotaForm = {
+  tipoAnimal: '',
+  numeroChip: '',
+  certificadoChip: null,
+  carnetVacunacion: null,
+}
+
 interface DetalleSag {
   vegetal: boolean
   animal: boolean
@@ -95,6 +111,8 @@ function RegistroViaje() {
   const [motivoViaje, setMotivoViaje] = useState('')
   const [menoresGuardados, setMenoresGuardados] = useState<MenorInfo[]>([])
   const [menoresNuevos, setMenoresNuevos] = useState<MenorForm[]>([])
+  const [mascotasGuardadas, setMascotasGuardadas] = useState<MascotaInfo[]>([])
+  const [mascotasNuevas, setMascotasNuevas] = useState<MascotaForm[]>([])
 
   // Paso 2 — Vehículo
   const [sinVehiculo, setSinVehiculo] = useState(false)
@@ -103,11 +121,13 @@ function RegistroViaje() {
   const [marca, setMarca] = useState('')
   const [modelo, setModelo] = useState('')
   const [anio, setAnio] = useState('')
+  const [permisoCirculacion, setPermisoCirculacion] = useState<File | null>(null)
   const [llevaRemolque, setLlevaRemolque] = useState(false)
   const [remolqueGuardado, setRemolqueGuardado] = useState(false)
   const [patenteRemolque, setPatenteRemolque] = useState('')
   const [marcaRemolque, setMarcaRemolque] = useState('')
   const [modeloRemolque, setModeloRemolque] = useState('')
+  const [permisoCirculacionRemolque, setPermisoCirculacionRemolque] = useState<File | null>(null)
 
   // Paso 3 — Declaración SAG + Aduanas
   const [vegetal, setVegetal] = useState(false)
@@ -139,6 +159,7 @@ function RegistroViaje() {
         setPasoFronterizo(viaje.pasoFronterizo)
         setMotivoViaje(viaje.motivoViaje)
         setMenoresGuardados(viaje.menores)
+        setMascotasGuardadas(viaje.mascotas)
 
         const principal = vehiculoPrincipal(viaje)
         if (principal) {
@@ -216,6 +237,22 @@ function RegistroViaje() {
       prev.map((m, idx) => (idx === i ? { ...m, [campo]: archivo } : m)),
     )
 
+  const agregarFilaMascota = () => setMascotasNuevas((prev) => [...prev, { ...mascotaVacia }])
+  const quitarFilaMascota = (i: number) =>
+    setMascotasNuevas((prev) => prev.filter((_, idx) => idx !== i))
+  const actualizarFilaMascota = (i: number, campo: 'tipoAnimal' | 'numeroChip', valor: string) =>
+    setMascotasNuevas((prev) =>
+      prev.map((m, idx) => (idx === i ? { ...m, [campo]: valor } : m)),
+    )
+  const actualizarArchivoMascota = (
+    i: number,
+    campo: 'certificadoChip' | 'carnetVacunacion',
+    archivo: File | null,
+  ) =>
+    setMascotasNuevas((prev) =>
+      prev.map((m, idx) => (idx === i ? { ...m, [campo]: archivo } : m)),
+    )
+
   const guardarViaje = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -243,6 +280,16 @@ function RegistroViaje() {
       }
       if (menor.requiereAutorizacion && !menor.permisoNotarial) {
         setError(`Adjunta el permiso notarial de "${menor.nombre}" para poder continuar`)
+        return
+      }
+    }
+    for (const mascota of mascotasNuevas) {
+      if (!mascota.tipoAnimal.trim() || !mascota.numeroChip.trim()) {
+        setError('Completa el tipo de animal y el número de chip de las mascotas agregadas')
+        return
+      }
+      if (!mascota.certificadoChip || !mascota.carnetVacunacion) {
+        setError(`Adjunta el certificado del chip y el carnet de vacunación de "${mascota.tipoAnimal}"`)
         return
       }
     }
@@ -277,6 +324,28 @@ function RegistroViaje() {
         ...menoresNuevos.map((m, i) => ({ ...m, idMenor: -(prev.length + i + 1) })),
       ])
       setMenoresNuevos([])
+
+      for (const mascota of mascotasNuevas) {
+        await agregarMascota(
+          viaje.idViaje,
+          { tipoAnimal: mascota.tipoAnimal, numeroChip: mascota.numeroChip },
+          {
+            certificadoChip: mascota.certificadoChip,
+            carnetVacunacion: mascota.carnetVacunacion,
+          },
+        )
+      }
+      setMascotasGuardadas((prev) => [
+        ...prev,
+        ...mascotasNuevas.map((m, i) => ({
+          ...m,
+          idMascota: -(prev.length + i + 1),
+          certificadoChip: true,
+          carnetVacunacion: true,
+        })),
+      ])
+      setMascotasNuevas([])
+
       setCurrentStep(1)
     } catch (err) {
       setError(mensajeDeError(err))
@@ -292,16 +361,24 @@ function RegistroViaje() {
       setError('Completa todos los campos del vehículo principal')
       return
     }
+    if (!permisoCirculacion) {
+      setError('Adjunta el permiso de circulación del vehículo para poder continuar')
+      return
+    }
     if (!idViaje) return
     setCargando(true)
     try {
-      await registrarVehiculo(idViaje, {
-        patente: patente.trim().toUpperCase(),
-        marca: marca.trim(),
-        modelo: modelo.trim(),
-        anio: Number(anio),
-        esRemolque: false,
-      })
+      await registrarVehiculo(
+        idViaje,
+        {
+          patente: patente.trim().toUpperCase(),
+          marca: marca.trim(),
+          modelo: modelo.trim(),
+          anio: Number(anio),
+          esRemolque: false,
+        },
+        permisoCirculacion,
+      )
       setPrincipalGuardado(true)
     } catch (err) {
       setError(mensajeDeError(err))
@@ -316,15 +393,23 @@ function RegistroViaje() {
       setError('La patente del remolque es obligatoria')
       return
     }
+    if (!permisoCirculacionRemolque) {
+      setError('Adjunta el permiso de circulación del remolque para poder continuar')
+      return
+    }
     if (!idViaje) return
     setCargando(true)
     try {
-      await registrarVehiculo(idViaje, {
-        patente: patenteRemolque.trim().toUpperCase(),
-        marca: marcaRemolque.trim() || null,
-        modelo: modeloRemolque.trim() || null,
-        esRemolque: true,
-      })
+      await registrarVehiculo(
+        idViaje,
+        {
+          patente: patenteRemolque.trim().toUpperCase(),
+          marca: marcaRemolque.trim() || null,
+          modelo: modeloRemolque.trim() || null,
+          esRemolque: true,
+        },
+        permisoCirculacionRemolque,
+      )
       setRemolqueGuardado(true)
     } catch (err) {
       setError(mensajeDeError(err))
@@ -627,6 +712,92 @@ function RegistroViaje() {
               </button>
             </div>
 
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Mascotas (RF02)</div>
+              <div className="mb-3 rounded-md bg-gov-primary-light px-3 py-2 text-[13px] text-gov-primary-dark">
+                Si viaja con mascotas, agrégalas aquí. Este paso es opcional; si agregas una,
+                todos sus datos y documentos son obligatorios.
+              </div>
+
+              {mascotasGuardadas.length > 0 && (
+                <ul className="mb-3 list-none">
+                  {mascotasGuardadas.map((mascota) => (
+                    <li
+                      key={mascota.idMascota}
+                      className="mb-2 rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2 text-[13px] text-gov-gray-a"
+                    >
+                      <span className="font-semibold text-gov-black">{mascota.tipoAnimal}</span>
+                      {' · chip '}
+                      {mascota.numeroChip}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {mascotasNuevas.map((mascota, index) => (
+                <div key={index} className="mb-3 rounded-md border border-gov-accent p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-gov-gray-a">
+                      Mascota {index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => quitarFilaMascota(index)}
+                      className="cursor-pointer text-[13px] font-semibold text-gov-secondary"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+
+                  <label className={labelClass}>Tipo de animal</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Perro, Gato"
+                    value={mascota.tipoAnimal}
+                    onChange={(e) => actualizarFilaMascota(index, 'tipoAnimal', e.target.value)}
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>Número de chip</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 981000000000000"
+                    value={mascota.numeroChip}
+                    onChange={(e) => actualizarFilaMascota(index, 'numeroChip', e.target.value)}
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>Certificado del chip</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) =>
+                      actualizarArchivoMascota(index, 'certificadoChip', e.target.files?.[0] ?? null)
+                    }
+                    className={inputClass}
+                  />
+
+                  <label className={labelClass}>Carnet de vacunación</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) =>
+                      actualizarArchivoMascota(index, 'carnetVacunacion', e.target.files?.[0] ?? null)
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={agregarFilaMascota}
+                className="w-full cursor-pointer rounded-md border border-dashed border-gov-primary px-3 py-2.5 text-[13px] font-semibold text-gov-primary"
+              >
+                + Agregar mascota
+              </button>
+            </div>
+
             <button type="submit" disabled={cargando} className={btnPrimario}>
               {cargando ? 'Guardando…' : 'Guardar y continuar'}
             </button>
@@ -691,6 +862,14 @@ function RegistroViaje() {
                     disabled={principalGuardado}
                     className={inputClass}
                   />
+                  <label className={labelClass}>Permiso de circulación</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    disabled={principalGuardado}
+                    onChange={(e) => setPermisoCirculacion(e.target.files?.[0] ?? null)}
+                    className={inputClass}
+                  />
 
                   {!principalGuardado ? (
                     <button
@@ -747,6 +926,14 @@ function RegistroViaje() {
                       value={modeloRemolque}
                       onChange={(e) => setModeloRemolque(e.target.value)}
                       disabled={remolqueGuardado}
+                      className={inputClass}
+                    />
+                    <label className={labelClass}>Permiso de circulación del remolque</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      disabled={remolqueGuardado}
+                      onChange={(e) => setPermisoCirculacionRemolque(e.target.files?.[0] ?? null)}
                       className={inputClass}
                     />
                     {!remolqueGuardado ? (

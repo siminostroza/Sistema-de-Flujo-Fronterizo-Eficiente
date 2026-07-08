@@ -1,5 +1,6 @@
 package cl.duoc.sffe.service;
 
+import cl.duoc.sffe.dto.MascotaRequest;
 import cl.duoc.sffe.dto.MenorRequest;
 import cl.duoc.sffe.dto.SagRequest;
 import cl.duoc.sffe.dto.VehiculoRequest;
@@ -8,11 +9,13 @@ import cl.duoc.sffe.dto.ViajeResponse;
 import cl.duoc.sffe.exception.AuthException;
 import cl.duoc.sffe.exception.ViajeException;
 import cl.duoc.sffe.model.DeclaracionSag;
+import cl.duoc.sffe.model.Mascota;
 import cl.duoc.sffe.model.Menor;
 import cl.duoc.sffe.model.Usuario;
 import cl.duoc.sffe.model.Vehiculo;
 import cl.duoc.sffe.model.Viaje;
 import cl.duoc.sffe.repository.DeclaracionSagRepository;
+import cl.duoc.sffe.repository.MascotaRepository;
 import cl.duoc.sffe.repository.MenorRepository;
 import cl.duoc.sffe.repository.UsuarioRepository;
 import cl.duoc.sffe.repository.VehiculoRepository;
@@ -37,6 +40,7 @@ public class ViajeService {
     private final ViajeRepository viajeRepository;
     private final MenorRepository menorRepository;
     private final VehiculoRepository vehiculoRepository;
+    private final MascotaRepository mascotaRepository;
     private final DeclaracionSagRepository declaracionSagRepository;
     private final UsuarioRepository usuarioRepository;
     private final DocumentoValidator documentoValidator;
@@ -45,6 +49,7 @@ public class ViajeService {
     public ViajeService(ViajeRepository viajeRepository,
                         MenorRepository menorRepository,
                         VehiculoRepository vehiculoRepository,
+                        MascotaRepository mascotaRepository,
                         DeclaracionSagRepository declaracionSagRepository,
                         UsuarioRepository usuarioRepository,
                         DocumentoValidator documentoValidator,
@@ -52,6 +57,7 @@ public class ViajeService {
         this.viajeRepository = viajeRepository;
         this.menorRepository = menorRepository;
         this.vehiculoRepository = vehiculoRepository;
+        this.mascotaRepository = mascotaRepository;
         this.declaracionSagRepository = declaracionSagRepository;
         this.usuarioRepository = usuarioRepository;
         this.documentoValidator = documentoValidator;
@@ -173,9 +179,12 @@ public class ViajeService {
      * como máximo un vehículo principal y un remolque; la operación es un upsert
      * por tipo (busca por {@code esRemolque}, crea si no existe, actualiza si ya
      * existe). El remolque exige que el vehículo principal ya esté registrado.
+     * El permiso de circulación es obligatorio para cualquiera de los dos
+     * (RF03) y queda visible para Aduana y PDI en el expediente consolidado.
      */
     @Transactional
-    public ViajeResponse registrarVehiculo(String identificador, Integer idViaje, VehiculoRequest request) {
+    public ViajeResponse registrarVehiculo(String identificador, Integer idViaje, VehiculoRequest request,
+                                            MultipartFile permisoCirculacion) {
         Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
 
         boolean esRemolque = Boolean.TRUE.equals(request.esRemolque());
@@ -194,6 +203,9 @@ public class ViajeService {
                     "Marca, modelo y año son obligatorios para el vehículo principal");
         }
 
+        String permisoPath = fileStorageService.guardarObligatorio(
+                permisoCirculacion, "vehiculos", "el permiso de circulación del vehículo");
+
         Vehiculo vehiculo = vehiculoRepository
                 .findByViajeIdViajeAndEsRemolque(idViaje, esRemolque)
                 .orElseGet(() -> Vehiculo.builder().viaje(viaje).esRemolque(esRemolque).build());
@@ -204,12 +216,44 @@ public class ViajeService {
         vehiculo.setAnio(request.anio());
         vehiculo.setEsRemolque(esRemolque);
         vehiculo.setVehiculoPrincipalId(esRemolque ? principal.getIdVehiculo() : null);
+        vehiculo.setPermisoCirculacionPath(permisoPath);
 
         vehiculoRepository.save(vehiculo);
 
         // No se agrega manualmente a viaje.getVehiculos(): la colección perezosa
         // aún no se ha cargado, así que ViajeResponse.from la leerá fresca desde
         // BD (incluyendo el vehículo recién guardado), igual que con los menores.
+        return ViajeResponse.from(viaje);
+    }
+
+    /**
+     * Agrega una mascota al expediente (RF02). El tipo de animal y el número
+     * de chip son obligatorios (@NotBlank en {@link MascotaRequest}); el
+     * certificado del chip y el carnet de vacunación son obligatorios como
+     * archivos adjuntos. Visible para toda fiscalización (Aduana, PDI, SAG).
+     */
+    @Transactional
+    public ViajeResponse agregarMascota(String identificador, Integer idViaje, MascotaRequest request,
+                                         MultipartFile certificadoChip, MultipartFile carnetVacunacion) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+
+        String certificadoPath = fileStorageService.guardarObligatorio(
+                certificadoChip, "mascotas", "el certificado del chip de la mascota");
+        String vacunacionPath = fileStorageService.guardarObligatorio(
+                carnetVacunacion, "mascotas", "el carnet de vacunación de la mascota");
+
+        Mascota mascota = Mascota.builder()
+                .viaje(viaje)
+                .tipoAnimal(request.tipoAnimal())
+                .numeroChip(request.numeroChip())
+                .certificadoChipPath(certificadoPath)
+                .carnetVacunacionPath(vacunacionPath)
+                .build();
+
+        mascotaRepository.save(mascota);
+
+        // No se agrega manualmente a viaje.getMascotas(): igual que con menores
+        // y vehículos, ViajeResponse.from relee la colección perezosa desde BD.
         return ViajeResponse.from(viaje);
     }
 

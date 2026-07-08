@@ -25,6 +25,7 @@ public record ExpedienteResponse(
         EstadoViaje estadoViaje,
         EstadoQr estadoQr,
         List<ViajeResponse.VehiculoInfo> vehiculos,
+        List<ViajeResponse.MascotaInfo> mascotas,
         ViajeResponse.SagInfo declaracionSag,
         List<ViajeResponse.MenorInfo> menores
 ) {
@@ -43,6 +44,7 @@ public record ExpedienteResponse(
                 viaje.getEstado(),
                 codigoQr.getEstado(),
                 viaje.getVehiculos().stream().map(ViajeResponse.VehiculoInfo::from).toList(),
+                viaje.getMascotas().stream().map(ViajeResponse.MascotaInfo::from).toList(),
                 ViajeResponse.SagInfo.from(viaje.getDeclaracionSag()),
                 viaje.getMenores().stream().map(ViajeResponse.MenorInfo::from).toList()
         );

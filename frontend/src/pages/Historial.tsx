@@ -95,12 +95,13 @@ function Historial() {
               <th className="px-4 py-2.5 font-semibold">Identificador</th>
               <th className="px-4 py-2.5 font-semibold">Acción</th>
               <th className="px-4 py-2.5 font-semibold">Módulo</th>
+              <th className="px-4 py-2.5 font-semibold">Observaciones</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 && !cargando ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gov-gray-b">
+                <td colSpan={6} className="px-4 py-6 text-center text-gov-gray-b">
                   Aún no hay resoluciones registradas en este turno.
                 </td>
               </tr>
@@ -127,6 +128,7 @@ function Historial() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-gov-gray-a">{item.modulo}</td>
+                    <td className="px-4 py-2.5 text-gov-gray-a">{item.observaciones || '—'}</td>
                   </tr>
                 )
               })

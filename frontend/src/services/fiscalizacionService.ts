@@ -28,6 +28,7 @@ export interface HistorialItem {
   identificadorEnmascarado: string | null
   accion: string
   modulo: string
+  observaciones: string | null
 }
 
 /** PUT /api/fiscalizacion/{codigo}/resolver — registra la resolución del funcionario (RF05). */

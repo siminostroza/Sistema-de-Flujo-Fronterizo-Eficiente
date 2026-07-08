@@ -1,5 +1,6 @@
 package cl.duoc.sffe.controller;
 
+import cl.duoc.sffe.dto.MascotaRequest;
 import cl.duoc.sffe.dto.MenorRequest;
 import cl.duoc.sffe.dto.SagRequest;
 import cl.duoc.sffe.dto.VehiculoRequest;
@@ -95,13 +96,39 @@ public class ViajeController {
                         carnetIdentidad, papelesAntecedentes, permisoNotarial));
     }
 
-    /** Registra o actualiza el vehículo asociado al expediente (RF03). */
-    @PostMapping("/{id}/vehiculo")
+    /**
+     * Registra o actualiza el vehículo asociado al expediente (RF03).
+     * Multipart: la parte {@code datos} lleva el JSON de
+     * {@link VehiculoRequest}; {@code permisoCirculacion} es el documento
+     * adjunto obligatorio (principal o remolque), visible para Aduana y PDI.
+     */
+    @PostMapping(value = "/{id}/vehiculo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ViajeResponse> registrarVehiculo(
             @PathVariable Integer id,
-            @Valid @RequestBody VehiculoRequest request,
+            @Valid @RequestPart("datos") VehiculoRequest request,
+            @RequestPart(value = "permisoCirculacion", required = false) MultipartFile permisoCirculacion,
             Authentication authentication) {
-        return ResponseEntity.ok(viajeService.registrarVehiculo(authentication.getName(), id, request));
+        return ResponseEntity.ok(viajeService.registrarVehiculo(
+                authentication.getName(), id, request, permisoCirculacion));
+    }
+
+    /**
+     * Agrega una mascota al expediente (RF02). Multipart: la parte
+     * {@code datos} lleva el JSON de {@link MascotaRequest}; el certificado
+     * del chip y el carnet de vacunación son obligatorios. Visible para
+     * fiscalización (Aduana, PDI, SAG).
+     */
+    @PostMapping(value = "/{id}/mascotas", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ViajeResponse> agregarMascota(
+            @PathVariable Integer id,
+            @Valid @RequestPart("datos") MascotaRequest request,
+            @RequestPart(value = "certificadoChip", required = false) MultipartFile certificadoChip,
+            @RequestPart(value = "carnetVacunacion", required = false) MultipartFile carnetVacunacion,
+            Authentication authentication) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(viajeService.agregarMascota(
+                        authentication.getName(), id, request, certificadoChip, carnetVacunacion));
     }
 
     /** Guarda o actualiza la Declaración Jurada SAG del expediente (RF02). */

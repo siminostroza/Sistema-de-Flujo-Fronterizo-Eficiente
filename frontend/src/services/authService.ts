@@ -12,6 +12,7 @@ export interface LoginResponse {
   rol: Rol
   nombre: string
   tipoDocumento: TipoDocumento
+  correo: string
 }
 
 export interface RegisterPayload {

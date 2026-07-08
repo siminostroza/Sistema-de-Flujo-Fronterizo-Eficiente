@@ -47,7 +47,14 @@ function Perfil() {
             <div className={labelFilaClass}>Identificador</div>
             <div className={valorFilaClass}>{sesion?.identificador}</div>
           </div>
+          <div className={filaClass}>
+            <div className={labelFilaClass}>Correo electrónico</div>
+            <div className={valorFilaClass}>{sesion?.correo || '—'}</div>
+          </div>
         </div>
+        <p className="mb-4 text-[13px] text-gov-gray-b">
+          A este correo llegará el aviso cuando tu ingreso sea autorizado o rechazado.
+        </p>
 
         <button
           onClick={onLogout}

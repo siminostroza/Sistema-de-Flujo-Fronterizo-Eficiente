@@ -50,4 +50,12 @@ public class Vehiculo {
     /** Id del vehículo principal al que se vincula el remolque (nullable). */
     @Column(name = "vehiculo_principal_id")
     private Integer vehiculoPrincipalId;
+
+    /**
+     * Ruta relativa del permiso de circulación adjuntado (obligatorio para
+     * cualquier vehículo, principal o remolque). Visible para Aduana y PDI en
+     * el expediente consolidado.
+     */
+    @Column(name = "permiso_circulacion_path", nullable = false, length = 255)
+    private String permisoCirculacionPath;
 }

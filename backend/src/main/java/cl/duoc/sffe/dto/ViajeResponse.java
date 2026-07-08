@@ -5,6 +5,7 @@ import cl.duoc.sffe.model.DeclaracionSag;
 import cl.duoc.sffe.model.EstadoDeclaracion;
 import cl.duoc.sffe.model.EstadoQr;
 import cl.duoc.sffe.model.EstadoViaje;
+import cl.duoc.sffe.model.Mascota;
 import cl.duoc.sffe.model.Menor;
 import cl.duoc.sffe.model.Vehiculo;
 import cl.duoc.sffe.model.Viaje;
@@ -15,8 +16,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Expediente de viaje completo, con vehículos, declaración (SAG + Aduanas),
- * menores y código QR anidados (RF02, RF03, RF04).
+ * Expediente de viaje completo, con vehículos, mascotas, declaración
+ * (SAG + Aduanas), menores y código QR anidados (RF02, RF03, RF04).
  */
 public record ViajeResponse(
         Integer idViaje,
@@ -26,8 +27,11 @@ public record ViajeResponse(
         String pasoFronterizo,
         String motivoViaje,
         EstadoViaje estado,
+        /** Motivo detallado del rechazo (RF05), visible en el ticket del pasajero. Nulo salvo RECHAZADO. */
+        String motivoRechazo,
         LocalDateTime createdAt,
         List<VehiculoInfo> vehiculos,
+        List<MascotaInfo> mascotas,
         SagInfo sag,
         List<MenorInfo> menores,
         QrInfo qr
@@ -43,22 +47,29 @@ public record ViajeResponse(
                 viaje.getPasoFronterizo(),
                 viaje.getMotivoViaje(),
                 viaje.getEstado(),
+                viaje.getMotivoRechazo(),
                 viaje.getCreatedAt(),
                 viaje.getVehiculos().stream().map(VehiculoInfo::from).toList(),
+                viaje.getMascotas().stream().map(MascotaInfo::from).toList(),
                 SagInfo.from(viaje.getDeclaracionSag()),
                 viaje.getMenores().stream().map(MenorInfo::from).toList(),
                 QrInfo.from(viaje.getCodigoQr())
         );
     }
 
-    /** Vehículo asociado al viaje (RF03): principal o carro de arrastre/remolque. */
+    /**
+     * Vehículo asociado al viaje (RF03): principal o carro de arrastre/remolque.
+     * {@code permisoCirculacion} indica si el permiso de circulación fue
+     * adjuntado (siempre {@code true}: es obligatorio); visible para Aduana y PDI.
+     */
     public record VehiculoInfo(
             Integer idVehiculo,
             String patente,
             String marca,
             String modelo,
             Integer anio,
-            Boolean esRemolque
+            Boolean esRemolque,
+            Boolean permisoCirculacion
     ) {
         public static VehiculoInfo from(Vehiculo vehiculo) {
             if (vehiculo == null) {
@@ -70,7 +81,31 @@ public record ViajeResponse(
                     vehiculo.getMarca(),
                     vehiculo.getModelo(),
                     vehiculo.getAnio(),
-                    vehiculo.getEsRemolque()
+                    vehiculo.getEsRemolque(),
+                    vehiculo.getPermisoCirculacionPath() != null
+            );
+        }
+    }
+
+    /**
+     * Mascota asociada al viaje (RF02): tipo de animal, número de chip y
+     * confirmación de los documentos adjuntados (certificado del chip y
+     * carnet de vacunación, ambos obligatorios). Visible para fiscalización.
+     */
+    public record MascotaInfo(
+            Integer idMascota,
+            String tipoAnimal,
+            String numeroChip,
+            Boolean certificadoChip,
+            Boolean carnetVacunacion
+    ) {
+        public static MascotaInfo from(Mascota mascota) {
+            return new MascotaInfo(
+                    mascota.getIdMascota(),
+                    mascota.getTipoAnimal(),
+                    mascota.getNumeroChip(),
+                    mascota.getCertificadoChipPath() != null,
+                    mascota.getCarnetVacunacionPath() != null
             );
         }
     }

@@ -8,6 +8,7 @@ public record LoginResponse(
         String token,
         Rol rol,
         String nombre,
-        TipoDocumento tipoDocumento
+        TipoDocumento tipoDocumento,
+        String correo
 ) {
 }

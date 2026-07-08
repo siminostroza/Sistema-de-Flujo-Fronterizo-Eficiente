@@ -33,6 +33,24 @@ export interface MenorArchivos {
   permisoNotarial: File | null
 }
 
+/** Datos de una mascota del viaje (RF02). */
+export interface MascotaPayload {
+  tipoAnimal: string
+  numeroChip: string
+}
+
+export interface MascotaInfo extends MascotaPayload {
+  idMascota: number
+  certificadoChip: boolean
+  carnetVacunacion: boolean
+}
+
+/** Certificado del chip y carnet de vacunación de la mascota (RF02): ambos obligatorios. */
+export interface MascotaArchivos {
+  certificadoChip: File | null
+  carnetVacunacion: File | null
+}
+
 export type EstadoQr = 'ACTIVO' | 'USADO' | 'EXPIRADO'
 
 export interface VehiculoPayload {
@@ -47,6 +65,8 @@ export interface VehiculoPayload {
 export interface VehiculoInfo extends VehiculoPayload {
   idVehiculo: number
   esRemolque: boolean
+  /** true si el permiso de circulación fue adjuntado (RF03, obligatorio). */
+  permisoCirculacion: boolean
 }
 
 export interface SagPayload {
@@ -78,9 +98,13 @@ export interface QrInfo {
 export interface Viaje extends ViajePayload {
   idViaje: number
   estado: EstadoViaje
+  /** Motivo detallado del rechazo (RF05), visible en el ticket del pasajero. Nulo salvo RECHAZADO. */
+  motivoRechazo: string | null
   createdAt: string
   /** Lista de vehículos del viaje: principal y, opcionalmente, remolque (1:N). */
   vehiculos: VehiculoInfo[]
+  /** Mascotas del viaje (RF02), visibles para toda fiscalización. */
+  mascotas: MascotaInfo[]
   sag: SagInfo | null
   menores: MenorInfo[]
   qr: QrInfo | null
@@ -154,12 +178,45 @@ export async function agregarMenor(
   return data
 }
 
-/** POST /api/viajes/{id}/vehiculo — registra o actualiza el vehículo del expediente (RF03). */
+/**
+ * POST /api/viajes/{id}/vehiculo — registra o actualiza el vehículo del
+ * expediente (RF03). Multipart: la parte "datos" lleva el JSON del vehículo;
+ * el permiso de circulación es obligatorio (principal o remolque), visible
+ * para Aduana y PDI.
+ */
 export async function registrarVehiculo(
   idViaje: number,
   payload: VehiculoPayload,
+  permisoCirculacion: File | null,
 ): Promise<Viaje> {
-  const { data } = await api.post<Viaje>(`/viajes/${idViaje}/vehiculo`, payload)
+  const formData = new FormData()
+  formData.append('datos', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+  if (permisoCirculacion) {
+    formData.append('permisoCirculacion', permisoCirculacion)
+  }
+  const { data } = await api.post<Viaje>(`/viajes/${idViaje}/vehiculo`, formData)
+  return data
+}
+
+/**
+ * POST /api/viajes/{id}/mascotas — agrega una mascota al expediente (RF02).
+ * Multipart: la parte "datos" lleva el JSON de la mascota; el certificado
+ * del chip y el carnet de vacunación son obligatorios.
+ */
+export async function agregarMascota(
+  idViaje: number,
+  payload: MascotaPayload,
+  archivos: MascotaArchivos,
+): Promise<Viaje> {
+  const formData = new FormData()
+  formData.append('datos', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
+  if (archivos.certificadoChip) {
+    formData.append('certificadoChip', archivos.certificadoChip)
+  }
+  if (archivos.carnetVacunacion) {
+    formData.append('carnetVacunacion', archivos.carnetVacunacion)
+  }
+  const { data } = await api.post<Viaje>(`/viajes/${idViaje}/mascotas`, formData)
   return data
 }
 
