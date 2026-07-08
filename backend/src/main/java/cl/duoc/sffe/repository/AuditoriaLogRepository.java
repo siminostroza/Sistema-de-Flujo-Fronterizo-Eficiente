@@ -7,10 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Acceso a datos de {@link AuditoriaLog}. En el MVP solo se registran
- * eventos básicos (RF09 completo queda postergado).
- */
+/** Acceso a datos de {@link AuditoriaLog} (RF05, RF09). */
 @Repository
 public interface AuditoriaLogRepository extends JpaRepository<AuditoriaLog, Integer> {
 
@@ -21,4 +18,7 @@ public interface AuditoriaLogRepository extends JpaRepository<AuditoriaLog, Inte
     /** Historial del turno de un funcionario: sus registros desde una fecha, más recientes primero (RF05). */
     List<AuditoriaLog> findByUsuarioIdUsuarioAndFechaAfterOrderByFechaDesc(
             Integer idUsuario, LocalDateTime desde);
+
+    /** Auditoría completa del sistema para ADMIN, más recientes primero (RF09). */
+    List<AuditoriaLog> findAllByOrderByFechaDesc();
 }
