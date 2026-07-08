@@ -29,9 +29,22 @@ spring:
           auth: ${SPRING_MAIL_SMTP_AUTH:false}
           starttls:
             enable: ${SPRING_MAIL_STARTTLS:false}
+          # Evita que un SMTP caído/no configurado deje colgada la resolución
+          # de fiscalización (el envío corre síncrono dentro de la transacción).
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 server:
   port: 8080
+  tomcat:
+    # Límite del connector de Tomcat para el body de requests POST (multipart
+    # incluido). Por defecto son solo 2MB, muy por debajo de
+    # spring.servlet.multipart.max-request-size (15MB): sin esto, subir un
+    # menor con 3 archivos adjuntos se corta antes de llegar a la validación
+    # de la aplicación.
+    max-http-form-post-size: 20MB
+    max-swallow-size: 20MB
 
 # RNF07: auto-documentación de endpoints con OpenAPI/Swagger
 springdoc:
@@ -57,6 +70,11 @@ sffe:
     dir: ${SFFE_UPLOAD_DIR:uploads}
   mail:
     from: ${SFFE_MAIL_FROM:no-reply@sffe.cl}
+  frontend:
+    # Base para los enlaces de verificación de correo y recuperación de
+    # contraseña que se envían por email (debe ser resoluble por el navegador
+    # del pasajero, no una URL interna del contenedor).
+    url: ${SFFE_FRONTEND_URL:http://localhost:5173}
 
 logging:
   level:

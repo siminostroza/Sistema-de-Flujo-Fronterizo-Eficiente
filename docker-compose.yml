@@ -40,6 +40,9 @@ services:
       SPRING_MAIL_HOST: mailpit
       SPRING_MAIL_PORT: "1025"
       SFFE_MAIL_FROM: no-reply@sffe.cl
+      # URL que el navegador del pasajero puede resolver (para los enlaces de
+      # verificación de correo y recuperación de contraseña en los emails).
+      SFFE_FRONTEND_URL: http://localhost
     ports:
       - "8080:8080"
     volumes:

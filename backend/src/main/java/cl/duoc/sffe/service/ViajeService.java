@@ -97,10 +97,25 @@ public class ViajeService {
         return ViajeResponse.from(obtenerViajeDelUsuario(identificador, idViaje));
     }
 
-    /** Actualiza los datos del itinerario de un expediente propio (RF02). */
+    /**
+     * Actualiza los datos del itinerario de un expediente propio (RF02). Si
+     * la nueva fecha de ingreso haría que algún menor ya agregado deje de
+     * calificar como menor de edad, rechaza el cambio: la validación de edad
+     * de {@code agregarMenor} quedaría inconsistente con el resto del
+     * expediente si se permitiera.
+     */
     @Transactional
     public ViajeResponse actualizar(String identificador, Integer idViaje, ViajeRequest request) {
         Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+
+        for (Menor menor : viaje.getMenores()) {
+            boolean esMenorDeEdad = menor.getFechaNacimiento().isAfter(request.fechaIngreso().minusYears(18));
+            if (!esMenorDeEdad) {
+                throw new ViajeException(HttpStatus.BAD_REQUEST,
+                        "No puedes cambiar la fecha de ingreso: \"" + menor.getNombre()
+                                + "\" dejaría de calificar como menor de edad a esa fecha");
+            }
+        }
 
         viaje.setFechaIngreso(request.fechaIngreso());
         viaje.setDestino(request.destino());

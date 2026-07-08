@@ -217,6 +217,11 @@ function Login() {
               className={inputClass}
               autoComplete="current-password"
             />
+            <p className="mb-3.5 mt-[-8px] text-right text-[13px]">
+              <Link to="/olvide-password" className="text-gov-primary">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </p>
 
             {error && (
               <p

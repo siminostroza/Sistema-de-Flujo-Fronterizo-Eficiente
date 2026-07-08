@@ -22,4 +22,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     boolean existsByIdentificador(String identificador);
 
     boolean existsByCorreo(String correo);
+
+    /** Verificación de correo tras el registro (RF01). */
+    Optional<Usuario> findByTokenVerificacionCorreo(String token);
+
+    /** Recuperación de contraseña (RF01). */
+    Optional<Usuario> findByTokenResetPassword(String token);
 }

@@ -80,6 +80,25 @@ public class Usuario {
     @Column(name = "papeles_antecedentes_path", length = 255)
     private String papelesAntecedentesPath;
 
+    /** true una vez que el pasajero confirmó el correo con el enlace enviado al registrarse (RF01). */
+    @Column(name = "correo_verificado", nullable = false)
+    @Builder.Default
+    private Boolean correoVerificado = false;
+
+    /** Token de un solo uso para verificar el correo (nulo una vez verificado). */
+    @Column(name = "token_verificacion_correo", length = 64)
+    private String tokenVerificacionCorreo;
+
+    @Column(name = "token_verificacion_expira")
+    private LocalDateTime tokenVerificacionExpira;
+
+    /** Token de un solo uso para restablecer la contraseña (nulo salvo solicitud activa). */
+    @Column(name = "token_reset_password", length = 64)
+    private String tokenResetPassword;
+
+    @Column(name = "token_reset_expira")
+    private LocalDateTime tokenResetExpira;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

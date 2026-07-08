@@ -2,6 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import Login from './pages/Login'
 import LoginFuncionario from './pages/LoginFuncionario'
+import VerificarCorreo from './pages/VerificarCorreo'
+import OlvideContrasena from './pages/OlvideContrasena'
+import RestablecerContrasena from './pages/RestablecerContrasena'
 import Dashboard from './pages/Dashboard'
 import RegistroViaje from './pages/RegistroViaje'
 import EstadoTramite from './pages/EstadoTramite'
@@ -78,6 +81,9 @@ function App() {
       {/* Rutas públicas de autenticación */}
       <Route path="/login" element={<Login />} />
       <Route path="/funcionario/login" element={<LoginFuncionario />} />
+      <Route path="/verificar-correo" element={<VerificarCorreo />} />
+      <Route path="/olvide-password" element={<OlvideContrasena />} />
+      <Route path="/restablecer-password" element={<RestablecerContrasena />} />
 
       {/* Vista pasajero */}
       <Route

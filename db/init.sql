@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
   fecha_nacimiento DATE,                        -- RF01: obligatoria solo para pasajeros autoregistrados
   carnet_identidad_path VARCHAR(255),           -- RF01: obligatorio salvo SIN_DOCUMENTO
   papeles_antecedentes_path VARCHAR(255),       -- RF01: obligatorio salvo SIN_DOCUMENTO
+  correo_verificado BOOLEAN NOT NULL DEFAULT FALSE,
+  token_verificacion_correo VARCHAR(64),
+  token_verificacion_expira DATETIME,
+  token_reset_password VARCHAR(64),
+  token_reset_expira DATETIME,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_usuarios_identificador UNIQUE (identificador)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

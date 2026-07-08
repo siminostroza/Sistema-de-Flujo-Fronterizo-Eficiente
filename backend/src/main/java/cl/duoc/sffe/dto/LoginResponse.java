@@ -9,6 +9,7 @@ public record LoginResponse(
         Rol rol,
         String nombre,
         TipoDocumento tipoDocumento,
-        String correo
+        String correo,
+        Boolean correoVerificado
 ) {
 }

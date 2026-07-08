@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '../../services/api'
 
 interface AdjuntoViewerProps {
@@ -9,46 +9,30 @@ interface AdjuntoViewerProps {
 }
 
 /**
- * Miniatura de un archivo adjunto (carnet, permiso, certificado, etc.) que al
- * hacer click se amplía a pantalla casi completa con el fondo difuminado. Se
- * cierra con la "×", con Escape o haciendo click fuera del recuadro. Los PDF
- * de más de una página solo muestran la primera en la miniatura; ampliados,
- * el visor nativo del navegador permite desplazarse por el resto.
+ * Miniatura de un archivo adjunto (carnet, permiso, certificado, etc.). El
+ * archivo NO se descarga hasta el primer click (un expediente puede tener
+ * más de una decena de adjuntos y la mayoría nunca se abre): al hacer click
+ * se descarga y de inmediato se amplía a pantalla casi completa con el fondo
+ * difuminado. Se cierra con la "×", con Escape o haciendo click fuera del
+ * recuadro. Clicks siguientes reabren el mismo archivo ya descargado sin
+ * volver a pedirlo. Los PDF de más de una página solo muestran la primera en
+ * la miniatura; ampliados, el visor nativo del navegador permite
+ * desplazarse por el resto.
  */
 function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [contentType, setContentType] = useState('')
-  const [cargando, setCargando] = useState(true)
+  const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(false)
   const [ampliado, setAmpliado] = useState(false)
+  const objectUrlRef = useRef<string | null>(null)
 
+  // Revoca el blob URL al desmontar (cambio de expediente, cierre del panel, etc.).
   useEffect(() => {
-    let cancelado = false
-    let objectUrl: string | null = null
-
-    setCargando(true)
-    setError(false)
-    api
-      .get(url, { responseType: 'blob' })
-      .then((respuesta) => {
-        if (cancelado) return
-        const tipo = respuesta.headers['content-type'] ?? respuesta.data.type
-        objectUrl = URL.createObjectURL(respuesta.data)
-        setContentType(tipo)
-        setBlobUrl(objectUrl)
-      })
-      .catch(() => {
-        if (!cancelado) setError(true)
-      })
-      .finally(() => {
-        if (!cancelado) setCargando(false)
-      })
-
     return () => {
-      cancelado = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     }
-  }, [url])
+  }, [])
 
   // Escape cierra el visor ampliado; bloquea el scroll de fondo mientras está abierto.
   useEffect(() => {
@@ -65,14 +49,36 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
     }
   }, [ampliado])
 
+  const onClick = async () => {
+    if (blobUrl) {
+      setAmpliado(true)
+      return
+    }
+    setCargando(true)
+    setError(false)
+    try {
+      const respuesta = await api.get(url, { responseType: 'blob' })
+      const tipo = respuesta.headers['content-type'] ?? respuesta.data.type
+      const objectUrl = URL.createObjectURL(respuesta.data)
+      objectUrlRef.current = objectUrl
+      setContentType(tipo)
+      setBlobUrl(objectUrl)
+      setAmpliado(true)
+    } catch {
+      setError(true)
+    } finally {
+      setCargando(false)
+    }
+  }
+
   const esPdf = contentType.includes('pdf')
 
   return (
     <>
       <button
         type="button"
-        onClick={() => blobUrl && setAmpliado(true)}
-        disabled={!blobUrl}
+        onClick={onClick}
+        disabled={cargando}
         aria-label={`Ver ${etiqueta}`}
         title={etiqueta}
         className="relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-md border border-gov-accent bg-gov-neutral disabled:cursor-default"
@@ -87,12 +93,18 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
             Error
           </span>
         )}
-        {!cargando && blobUrl && (
+        {!cargando && !error && blobUrl && (
           esPdf ? (
             <embed src={blobUrl} type="application/pdf" className="pointer-events-none h-full w-full" />
           ) : (
             <img src={blobUrl} alt={etiqueta} className="h-full w-full object-cover" />
           )
+        )}
+        {!cargando && !error && !blobUrl && (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-gov-gray-a">
+            <span className="text-[20px] leading-none">📄</span>
+            <span className="text-[9px] font-semibold">Ver</span>
+          </span>
         )}
       </button>
 

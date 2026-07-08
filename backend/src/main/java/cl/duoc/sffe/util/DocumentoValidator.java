@@ -36,6 +36,12 @@ public class DocumentoValidator {
         String cuerpo = partes[0];
         char dvIngresado = partes[1].charAt(0);
 
+        // Rechaza cuerpos degenerados (00000000, 11111111, ...): el módulo 11
+        // por sí solo los acepta si el DV calza, pero jamás son RUT reales.
+        if (cuerpo.chars().distinct().count() == 1) {
+            return false;
+        }
+
         int suma = 0;
         int multiplicador = 2;
         for (int i = cuerpo.length() - 1; i >= 0; i--) {

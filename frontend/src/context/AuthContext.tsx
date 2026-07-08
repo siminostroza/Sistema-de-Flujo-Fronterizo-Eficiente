@@ -15,6 +15,7 @@ export interface Sesion {
   identificador: string
   tipoDocumento: TipoDocumento
   correo: string
+  correoVerificado: boolean
 }
 
 interface AuthContextType {
@@ -22,6 +23,8 @@ interface AuthContextType {
   login: (datos: Sesion) => void
   logout: () => void
   isAuthenticated: () => boolean
+  /** Actualiza el estado de verificación del correo tras confirmarlo (RF01), sin recargar la sesión. */
+  marcarCorreoVerificado: () => void
 }
 
 const STORAGE_KEY = 'sffe_token'
@@ -30,6 +33,7 @@ const STORAGE_NOMBRE = 'sffe_nombre'
 const STORAGE_IDENTIFICADOR = 'sffe_identificador'
 const STORAGE_TIPO_DOCUMENTO = 'sffe_tipo_documento'
 const STORAGE_CORREO = 'sffe_correo'
+const STORAGE_CORREO_VERIFICADO = 'sffe_correo_verificado'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -41,8 +45,9 @@ function leerSesionInicial(): Sesion | null {
   const identificador = localStorage.getItem(STORAGE_IDENTIFICADOR)
   const tipoDocumento = localStorage.getItem(STORAGE_TIPO_DOCUMENTO) as TipoDocumento | null
   const correo = localStorage.getItem(STORAGE_CORREO) ?? ''
+  const correoVerificado = localStorage.getItem(STORAGE_CORREO_VERIFICADO) === 'true'
   if (token && rol && nombre && identificador && tipoDocumento) {
-    return { token, rol, nombre, identificador, tipoDocumento, correo }
+    return { token, rol, nombre, identificador, tipoDocumento, correo, correoVerificado }
   }
   return null
 }
@@ -57,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_IDENTIFICADOR, datos.identificador)
     localStorage.setItem(STORAGE_TIPO_DOCUMENTO, datos.tipoDocumento)
     localStorage.setItem(STORAGE_CORREO, datos.correo ?? '')
+    localStorage.setItem(STORAGE_CORREO_VERIFICADO, String(Boolean(datos.correoVerificado)))
     setSesion(datos)
   }
 
@@ -67,13 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_IDENTIFICADOR)
     localStorage.removeItem(STORAGE_TIPO_DOCUMENTO)
     localStorage.removeItem(STORAGE_CORREO)
+    localStorage.removeItem(STORAGE_CORREO_VERIFICADO)
     setSesion(null)
   }
 
   const isAuthenticated = () => sesion !== null
 
+  const marcarCorreoVerificado = () => {
+    localStorage.setItem(STORAGE_CORREO_VERIFICADO, 'true')
+    setSesion((prev) => (prev ? { ...prev, correoVerificado: true } : prev))
+  }
+
   return (
-    <AuthContext.Provider value={{ sesion, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ sesion, login, logout, isAuthenticated, marcarCorreoVerificado }}>
       {children}
     </AuthContext.Provider>
   )

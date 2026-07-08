@@ -11,6 +11,7 @@ import {
   type Viaje,
 } from '../services/viajeService'
 import { estadoBadge } from '../utils/estado'
+import { reenviarVerificacion, mensajeDeError } from '../services/authService'
 
 const STORAGE_ID_VIAJE = 'sffe_id_viaje_activo'
 
@@ -25,6 +26,21 @@ function Dashboard() {
   const [viajes, setViajes] = useState<Viaje[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [reenviando, setReenviando] = useState(false)
+  const [avisoVerificacion, setAvisoVerificacion] = useState('')
+
+  const onReenviarVerificacion = async () => {
+    setReenviando(true)
+    setAvisoVerificacion('')
+    try {
+      const datos = await reenviarVerificacion()
+      setAvisoVerificacion(datos.mensaje)
+    } catch (err) {
+      setAvisoVerificacion(mensajeDeError(err))
+    } finally {
+      setReenviando(false)
+    }
+  }
 
   const cargar = () => {
     setCargando(true)
@@ -70,6 +86,26 @@ function Dashboard() {
           </Link>
         </div>
         <p className="mt-0 text-sm text-gov-gray-b">Tus viajes registrados</p>
+
+        {sesion && !sesion.correoVerificado && (
+          <div className="mb-4 mt-3 rounded-lg border border-estado-pendiente-text bg-estado-pendiente-bg px-4 py-3 text-[13px] text-estado-pendiente-text">
+            <p className="mb-2">
+              Aún no confirmas tu correo ({sesion.correo}). Sin verificarlo, igual podrás recibir los
+              avisos de aprobación/rechazo, pero te recomendamos confirmarlo.
+            </p>
+            {avisoVerificacion ? (
+              <p className="font-semibold">{avisoVerificacion}</p>
+            ) : (
+              <button
+                onClick={onReenviarVerificacion}
+                disabled={reenviando}
+                className="cursor-pointer rounded-md border border-estado-pendiente-text px-3 py-1.5 text-[13px] font-semibold disabled:cursor-default disabled:opacity-60"
+              >
+                {reenviando ? 'Enviando…' : 'Reenviar correo de verificación'}
+              </button>
+            )}
+          </div>
+        )}
 
         {!cargando && viajes.length > 0 && (
           <button

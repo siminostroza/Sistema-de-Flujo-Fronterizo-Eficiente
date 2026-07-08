@@ -15,6 +15,10 @@ export function validarRut(rutEntrada: string): boolean {
     return false
   }
   const [cuerpo, dv] = rut.split('-')
+  // Rechaza cuerpos degenerados (00000000, 11111111, ...): nunca son RUT reales.
+  if (/^(\d)\1+$/.test(cuerpo)) {
+    return false
+  }
   let suma = 0
   let multiplicador = 2
   for (let i = cuerpo.length - 1; i >= 0; i--) {

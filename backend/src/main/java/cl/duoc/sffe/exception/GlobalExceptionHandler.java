@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.LocalDateTime;
@@ -60,6 +61,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(cuerpo(HttpStatus.BAD_REQUEST,
                         "Falta un archivo o dato obligatorio: " + ex.getRequestPartName()));
+    }
+
+    /** El request multipart supera el límite configurado (por archivo o en total). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSize(
+            MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(cuerpo(HttpStatus.BAD_REQUEST,
+                        "Los archivos adjuntos superan el tamaño máximo permitido"));
     }
 
     /** Errores de validación de los DTO (@Valid). Devuelve el primer mensaje. */

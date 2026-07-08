@@ -13,6 +13,7 @@ export interface LoginResponse {
   nombre: string
   tipoDocumento: TipoDocumento
   correo: string
+  correoVerificado: boolean
 }
 
 export interface RegisterPayload {
@@ -65,6 +66,37 @@ export async function register(
     formData.append('papelesAntecedentes', archivos.papelesAntecedentes)
   }
   const { data } = await api.post<RegisterResponse>('/auth/register', formData)
+  return data
+}
+
+export interface MensajeResponse {
+  mensaje: string
+}
+
+/** GET /api/auth/verificar-correo — confirma el correo a partir del enlace enviado al registrarse. */
+export async function verificarCorreo(token: string): Promise<MensajeResponse> {
+  const { data } = await api.get<MensajeResponse>('/auth/verificar-correo', { params: { token } })
+  return data
+}
+
+/** POST /api/auth/reenviar-verificacion — reenvía el correo de verificación (requiere sesión de pasajero). */
+export async function reenviarVerificacion(): Promise<MensajeResponse> {
+  const { data } = await api.post<MensajeResponse>('/auth/reenviar-verificacion')
+  return data
+}
+
+/** POST /api/auth/olvide-password — inicia la recuperación de contraseña. */
+export async function olvidePassword(identificadorOCorreo: string): Promise<MensajeResponse> {
+  const { data } = await api.post<MensajeResponse>('/auth/olvide-password', { identificadorOCorreo })
+  return data
+}
+
+/** POST /api/auth/restablecer-password — aplica la nueva contraseña a partir de un token de recuperación. */
+export async function restablecerPassword(
+  token: string,
+  nuevaContrasena: string,
+): Promise<MensajeResponse> {
+  const { data } = await api.post<MensajeResponse>('/auth/restablecer-password', { token, nuevaContrasena })
   return data
 }
 

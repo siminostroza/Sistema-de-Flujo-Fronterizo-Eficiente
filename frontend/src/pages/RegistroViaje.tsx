@@ -303,6 +303,10 @@ function RegistroViaje() {
       setIdViaje(viaje.idViaje)
       setIdViajeActivo(viaje.idViaje)
 
+      // Se guardan de a uno: cada menor/mascota que ya se agregó se saca de
+      // "Nuevos" y pasa a "Guardados" de inmediato, para que si falla un
+      // ítem más adelante en el loop (ej. corte de red), reintentar "Guardar
+      // y continuar" no vuelva a enviar los que ya quedaron guardados.
       for (const menor of menoresNuevos) {
         await agregarMenor(
           viaje.idViaje,
@@ -318,12 +322,9 @@ function RegistroViaje() {
             permisoNotarial: menor.permisoNotarial,
           },
         )
+        setMenoresGuardados((prev) => [...prev, { ...menor, idMenor: -(prev.length + 1) }])
+        setMenoresNuevos((prev) => prev.filter((m) => m !== menor))
       }
-      setMenoresGuardados((prev) => [
-        ...prev,
-        ...menoresNuevos.map((m, i) => ({ ...m, idMenor: -(prev.length + i + 1) })),
-      ])
-      setMenoresNuevos([])
 
       for (const mascota of mascotasNuevas) {
         await agregarMascota(
@@ -334,17 +335,12 @@ function RegistroViaje() {
             carnetVacunacion: mascota.carnetVacunacion,
           },
         )
+        setMascotasGuardadas((prev) => [
+          ...prev,
+          { ...mascota, idMascota: -(prev.length + 1), certificadoChip: true, carnetVacunacion: true },
+        ])
+        setMascotasNuevas((prev) => prev.filter((m) => m !== mascota))
       }
-      setMascotasGuardadas((prev) => [
-        ...prev,
-        ...mascotasNuevas.map((m, i) => ({
-          ...m,
-          idMascota: -(prev.length + i + 1),
-          certificadoChip: true,
-          carnetVacunacion: true,
-        })),
-      ])
-      setMascotasNuevas([])
 
       setCurrentStep(1)
     } catch (err) {

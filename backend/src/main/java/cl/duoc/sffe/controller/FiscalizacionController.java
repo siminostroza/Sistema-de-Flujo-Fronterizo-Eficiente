@@ -109,6 +109,7 @@ public class FiscalizacionController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(archivo.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .header("X-Content-Type-Options", "nosniff")
                 .body(archivo.contenido());
     }
 
