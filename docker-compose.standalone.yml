@@ -1,0 +1,84 @@
+# docker-compose para el PAQUETE STANDALONE (ver empaquetar-standalone-*.sh/.bat).
+# Única diferencia real con docker-compose.yml: backend/frontend usan
+# "image:" (ya precompiladas y cargadas con `docker load`) en vez de
+# "build:" (que exige tener el código fuente y recompilar en cada inicio).
+# Todo lo demás —variables de entorno, puertos, volúmenes— es idéntico a
+# propósito, para no mantener dos configuraciones distintas de más.
+name: sffe
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: sffe-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: sffe
+      MYSQL_USER: sffe
+      MYSQL_PASSWORD: sffe_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-usffe", "-psffe_dev_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sffe-net
+
+  backend:
+    image: sffe-backend:standalone
+    container_name: sffe-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/sffe?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Santiago
+      SPRING_DATASOURCE_USERNAME: sffe
+      SPRING_DATASOURCE_PASSWORD: sffe_dev_password
+      SFFE_JWT_SECRET: cambiar-este-secreto-en-produccion-por-uno-de-al-menos-256-bits
+      SFFE_JWT_EXPIRATION_MS: "86400000"
+      SFFE_UPLOAD_DIR: /app/uploads
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: "1025"
+      SFFE_MAIL_FROM: no-reply@sffe.cl
+      SFFE_FRONTEND_URL: http://localhost
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - sffe-net
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sffe-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - sffe-net
+
+  frontend:
+    image: sffe-frontend:standalone
+    container_name: sffe-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - sffe-net
+
+volumes:
+  mysql_data:
+  backend_uploads:
+
+networks:
+  sffe-net:
+    driver: bridge

@@ -22,3 +22,7 @@ Thumbs.db
 # Variables de entorno locales
 .env
 .env.local
+
+# Paquete standalone generado por empaquetar-standalone-*.sh/.bat
+# (contiene un .tar de varios cientos de MB con las imágenes Docker)
+sffe-standalone/

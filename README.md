@@ -21,7 +21,29 @@ para no confundirlos):
 
 Ambos lanzadores levantan los servicios, esperan a que el backend esté listo,
 abren el navegador en `http://localhost` y muestran las cuentas de prueba en
-pantalla.
+pantalla. Compilan el backend y el frontend desde el código fuente la primera
+vez (tarda unos minutos); después Docker reutiliza la caché.
+
+## Paquete standalone (sin código fuente, arranque rápido)
+
+Para entregar el sistema a alguien que **no** deba recibir el código fuente,
+o que solo quiera abrirlo sin esperar la compilación:
+
+1. En esta carpeta (con el código fuente y Docker funcionando), genera el
+   paquete una vez:
+   - Windows: doble clic en **`empaquetar-standalone-windows.bat`**
+   - Linux/macOS: **`./empaquetar-standalone-linux.sh`**
+
+   Esto compila las imágenes de backend y frontend y arma la carpeta
+   `sffe-standalone/`, con las imágenes ya empaquetadas en un `.tar` y los
+   lanzadores correspondientes — sin el código fuente adentro.
+2. Comprime `sffe-standalone/` y entrégala. Quien la reciba solo necesita
+   Docker instalado; ejecuta **`sffe-standalone-windows.bat`** o
+   **`sffe-standalone-linux.sh`** según su sistema operativo. Como las
+   imágenes ya vienen precompiladas, el arranque es solo levantar
+   contenedores (nada de `mvn`/`npm`), mucho más rápido que la primera vez
+   con `iniciar-sffe-*`. Para detener: `sffe-standalone-detener-windows.bat`
+   / `sffe-standalone-detener-linux.sh`.
 
 ## Inicio rápido con Docker
 
