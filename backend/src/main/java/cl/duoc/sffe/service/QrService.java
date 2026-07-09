@@ -49,7 +49,18 @@ public class QrService {
 
     /**
      * Genera el código QR del expediente del usuario autenticado, o devuelve
-     * el existente si ya está ACTIVO (idempotente) (RF04).
+     * el existente si ya se había generado antes (idempotente) (RF04).
+     *
+     * <p>El código NO se regenera aunque el QR ya esté USADO/EXPIRADO: es un
+     * identificador estable durante toda la vida del expediente. Regenerarlo
+     * al releer "Mi código QR" después de que Aduana ya resolvió rompía el
+     * flujo multi-rol de la Sesión 6.2 — un funcionario de PDI o SAG que
+     * había escaneado el código original quedaba con un código huérfano en
+     * cuanto el pasajero volvía a abrir su pantalla de QR, porque
+     * {@code codigos_qr.codigo} cambiaba de valor por debajo. También es lo
+     * que permite que la auditoría de un expediente ({@code codigoQr} en
+     * {@link cl.duoc.sffe.model.AuditoriaLog}) se pueda reconstruir siempre
+     * por el mismo código.</p>
      */
     @Transactional
     public QrResponse generarQR(Integer idViaje, String identificador) {
@@ -61,18 +72,12 @@ public class QrService {
         }
 
         CodigoQr codigoQr = codigoQrRepository.findByViajeIdViaje(idViaje).orElse(null);
-        if (codigoQr == null || codigoQr.getEstado() != EstadoQr.ACTIVO) {
-            String nuevoCodigo = UUID.randomUUID().toString();
-            if (codigoQr == null) {
-                codigoQr = CodigoQr.builder()
-                        .viaje(viaje)
-                        .codigo(nuevoCodigo)
-                        .estado(EstadoQr.ACTIVO)
-                        .build();
-            } else {
-                codigoQr.setCodigo(nuevoCodigo);
-                codigoQr.setEstado(EstadoQr.ACTIVO);
-            }
+        if (codigoQr == null) {
+            codigoQr = CodigoQr.builder()
+                    .viaje(viaje)
+                    .codigo(UUID.randomUUID().toString())
+                    .estado(EstadoQr.ACTIVO)
+                    .build();
             codigoQr = codigoQrRepository.save(codigoQr);
         }
 

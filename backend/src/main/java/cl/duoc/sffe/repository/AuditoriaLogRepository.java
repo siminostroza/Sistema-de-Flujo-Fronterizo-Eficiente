@@ -24,4 +24,7 @@ public interface AuditoriaLogRepository extends JpaRepository<AuditoriaLog, Inte
 
     /** Últimas resoluciones (APROBADO/RECHAZADO), para promediar el tiempo de espera (RF10). */
     List<AuditoriaLog> findTop20ByAccionInOrderByFechaDesc(List<String> acciones);
+
+    /** Historial completo de un expediente por su código QR (RF05), para verlo entre roles. */
+    List<AuditoriaLog> findByCodigoQrOrderByFechaDesc(String codigoQr);
 }

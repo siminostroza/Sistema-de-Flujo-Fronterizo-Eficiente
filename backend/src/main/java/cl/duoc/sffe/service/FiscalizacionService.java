@@ -1,5 +1,6 @@
 package cl.duoc.sffe.service;
 
+import cl.duoc.sffe.dto.AuditoriaExpedienteItemResponse;
 import cl.duoc.sffe.dto.FiscalizacionResponse;
 import cl.duoc.sffe.dto.HistorialItemResponse;
 import cl.duoc.sffe.exception.AuthException;
@@ -113,6 +114,24 @@ public class FiscalizacionService {
                     : "el motivo de la sospecha";
             throw new FiscalizacionException(HttpStatus.BAD_REQUEST, "Debes indicar " + etiqueta);
         }
+    }
+
+    /**
+     * Historial completo de un expediente específico, a partir de su código
+     * QR (RF05). A diferencia de {@link #historialTurno}, no se acota al
+     * funcionario autenticado ni al día de hoy: es lo que permite que Aduana
+     * vea si PDI ya validó identidad, que PDI vea si Aduana ya autorizó el
+     * ingreso, etc. — cualquier rol de fiscalización que pueda validar el QR
+     * puede ver quién hizo qué sobre ese mismo expediente.
+     */
+    @Transactional(readOnly = true)
+    public List<AuditoriaExpedienteItemResponse> auditoriaDeExpediente(String codigo) {
+        codigoQrRepository.findByCodigo(codigo)
+                .orElseThrow(() -> new FiscalizacionException(HttpStatus.NOT_FOUND, "Código QR no encontrado"));
+        return auditoriaLogRepository.findByCodigoQrOrderByFechaDesc(codigo)
+                .stream()
+                .map(AuditoriaExpedienteItemResponse::from)
+                .toList();
     }
 
     /**

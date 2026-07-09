@@ -183,11 +183,20 @@ export async function agregarMenor(
 }
 
 /**
- * DELETE /api/viajes/{id}/menores/{idMenor} — quita un menor del expediente
- * (RF02). Solo mientras el viaje sigue PENDIENTE; el wizard también lo usa
- * para "editar" un menor ya guardado (lo quita y lo vuelve a agregar con los
- * datos corregidos, ya que los archivos no se pueden precargar en el input).
+ * PUT /api/viajes/{id}/menores/{idMenor} — actualiza nombre, RUT, fecha de
+ * nacimiento y autorización notarial de un menor ya guardado (RF02), sin
+ * tocar sus archivos adjuntos (para eso está reemplazarArchivoMenor).
  */
+export async function actualizarMenor(
+  idViaje: number,
+  idMenor: number,
+  payload: MenorPayload,
+): Promise<Viaje> {
+  const { data } = await api.put<Viaje>(`/viajes/${idViaje}/menores/${idMenor}`, payload)
+  return data
+}
+
+/** DELETE /api/viajes/{id}/menores/{idMenor} — quita un menor del expediente, definitivamente (RF02). Solo mientras el viaje sigue PENDIENTE. */
 export async function eliminarMenor(idViaje: number, idMenor: number): Promise<Viaje> {
   const { data } = await api.delete<Viaje>(`/viajes/${idViaje}/menores/${idMenor}`)
   return data
@@ -235,7 +244,17 @@ export async function agregarMascota(
   return data
 }
 
-/** DELETE /api/viajes/{id}/mascotas/{idMascota} — quita una mascota del expediente (RF02); mismo criterio que {@link eliminarMenor}. */
+/** PUT /api/viajes/{id}/mascotas/{idMascota} — actualiza tipo de animal y número de chip, sin tocar sus archivos (RF02). */
+export async function actualizarMascota(
+  idViaje: number,
+  idMascota: number,
+  payload: MascotaPayload,
+): Promise<Viaje> {
+  const { data } = await api.put<Viaje>(`/viajes/${idViaje}/mascotas/${idMascota}`, payload)
+  return data
+}
+
+/** DELETE /api/viajes/{id}/mascotas/{idMascota} — quita una mascota del expediente, definitivamente (RF02). Solo mientras el viaje sigue PENDIENTE. */
 export async function eliminarMascota(idViaje: number, idMascota: number): Promise<Viaje> {
   const { data } = await api.delete<Viaje>(`/viajes/${idViaje}/mascotas/${idMascota}`)
   return data

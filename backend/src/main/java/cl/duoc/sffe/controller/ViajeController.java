@@ -103,10 +103,18 @@ public class ViajeController {
     }
 
     /**
-     * Quita un menor del expediente (RF02). Solo mientras el viaje sigue
-     * PENDIENTE; el wizard también lo usa para "editar" un menor ya
-     * guardado (lo quita y lo vuelve a agregar con los datos corregidos).
+     * Actualiza los datos de texto (nombre, RUT, fecha de nacimiento,
+     * autorización notarial) de un menor ya guardado, sin tocar sus
+     * archivos adjuntos (RF02). Solo mientras el viaje sigue PENDIENTE.
      */
+    @PutMapping("/{id}/menores/{idMenor}")
+    public ResponseEntity<ViajeResponse> actualizarMenor(
+            @PathVariable Integer id, @PathVariable Integer idMenor,
+            @Valid @RequestBody MenorRequest request, Authentication authentication) {
+        return ResponseEntity.ok(viajeService.actualizarMenor(authentication.getName(), id, idMenor, request));
+    }
+
+    /** Quita un menor del expediente (RF02), definitivamente. Solo mientras el viaje sigue PENDIENTE. */
     @DeleteMapping("/{id}/menores/{idMenor}")
     public ResponseEntity<ViajeResponse> eliminarMenor(
             @PathVariable Integer id, @PathVariable Integer idMenor, Authentication authentication) {
@@ -148,7 +156,15 @@ public class ViajeController {
                         authentication.getName(), id, request, certificadoChip, carnetVacunacion));
     }
 
-    /** Quita una mascota del expediente (RF02). Solo mientras el viaje sigue PENDIENTE. */
+    /** Actualiza el tipo de animal y el número de chip de una mascota ya guardada, sin tocar sus archivos (RF02). */
+    @PutMapping("/{id}/mascotas/{idMascota}")
+    public ResponseEntity<ViajeResponse> actualizarMascota(
+            @PathVariable Integer id, @PathVariable Integer idMascota,
+            @Valid @RequestBody MascotaRequest request, Authentication authentication) {
+        return ResponseEntity.ok(viajeService.actualizarMascota(authentication.getName(), id, idMascota, request));
+    }
+
+    /** Quita una mascota del expediente (RF02), definitivamente. Solo mientras el viaje sigue PENDIENTE. */
     @DeleteMapping("/{id}/mascotas/{idMascota}")
     public ResponseEntity<ViajeResponse> eliminarMascota(
             @PathVariable Integer id, @PathVariable Integer idMascota, Authentication authentication) {

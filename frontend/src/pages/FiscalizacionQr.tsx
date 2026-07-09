@@ -2,13 +2,41 @@ import { useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { validarQR, type ExpedienteResponse } from '../services/qrService'
 import {
+  obtenerAuditoriaExpediente,
   resolverFiscalizacion,
+  type AuditoriaExpedienteItem,
   type DecisionFiscalizacion,
 } from '../services/fiscalizacionService'
 import { mensajeDeError } from '../services/authService'
 import { estadoBadge } from '../utils/estado'
 import { etiquetaTipoDocumento } from '../utils/documento'
+import { formatearFechaHora } from '../utils/fecha'
 import AdjuntoViewer from '../components/ui/AdjuntoViewer'
+
+/** Etiqueta y color del badge según la acción registrada en la auditoría (RF05). */
+function accionBadge(accion: string): { texto: string; clases: string } {
+  switch (accion) {
+    case 'APROBADO':
+      return { texto: 'Autorizado', clases: 'bg-estado-aprobado-bg text-estado-aprobado-text' }
+    case 'RECHAZADO':
+      return { texto: 'Denegado', clases: 'bg-estado-rechazado-bg text-estado-rechazado-text' }
+    case 'SOSPECHA':
+      return { texto: 'Sospecha', clases: 'bg-estado-pendiente-bg text-estado-pendiente-text' }
+    case 'VALIDACION_IDENTIDAD':
+      return { texto: 'Identidad validada', clases: 'bg-gov-primary-light text-gov-primary-dark' }
+    case 'VALIDACION_SAG':
+      return { texto: 'SAG validada', clases: 'bg-gov-primary-light text-gov-primary-dark' }
+    default:
+      return { texto: accion, clases: 'bg-gov-neutral text-gov-gray-a' }
+  }
+}
+
+const ETIQUETAS_ROL: Record<string, string> = {
+  FUNCIONARIO_ADUANA: 'Aduana',
+  FUNCIONARIO_PDI: 'PDI',
+  FUNCIONARIO_SAG: 'SAG',
+  ADMIN: 'Admin',
+}
 
 const cardClass = 'rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
@@ -83,6 +111,7 @@ function FiscalizacionQr() {
   const [codigo, setCodigo] = useState('')
   const [codigoValidado, setCodigoValidado] = useState('')
   const [expediente, setExpediente] = useState<ExpedienteResponse | null>(null)
+  const [auditoria, setAuditoria] = useState<AuditoriaExpedienteItem[]>([])
   const [validando, setValidando] = useState(false)
   const [resolviendo, setResolviendo] = useState(false)
   const [observaciones, setObservaciones] = useState('')
@@ -101,11 +130,16 @@ function FiscalizacionQr() {
     setError('')
     setConfirmacion('')
     setExpediente(null)
+    setAuditoria([])
     setValidando(true)
     try {
       const datos = await validarQR(codigoLimpio)
       setExpediente(datos)
       setCodigoValidado(codigoLimpio)
+      // No bloquea la carga del expediente si la auditoría falla por algún motivo.
+      obtenerAuditoriaExpediente(codigoLimpio)
+        .then(setAuditoria)
+        .catch(() => setAuditoria([]))
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {
@@ -133,6 +167,7 @@ function FiscalizacionQr() {
       setConfirmacion(respuesta.mensaje)
       // Limpia el formulario para el siguiente pasajero.
       setExpediente(null)
+      setAuditoria([])
       setCodigo('')
       setCodigoValidado('')
       setObservaciones('')
@@ -200,6 +235,38 @@ function FiscalizacionQr() {
               className="rounded-md bg-estado-rechazado-bg px-4 py-3 text-[14px] text-estado-rechazado-text"
             >
               {error}
+            </div>
+          )}
+
+          {/* Historial de fiscalización de este expediente: lo que ya resolvieron otros roles */}
+          {expediente && auditoria.length > 0 && (
+            <div className={cardClass}>
+              <div className={cardTitleClass}>Historial de este expediente</div>
+              <ul className="flex flex-col gap-2">
+                {auditoria.map((item, idx) => {
+                  const badge = accionBadge(item.accion)
+                  return (
+                    <li
+                      key={idx}
+                      className="rounded-md bg-gov-neutral px-3 py-2 text-[13px] text-gov-black"
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${badge.clases}`}>
+                          {badge.texto}
+                        </span>
+                        <span className="text-[11px] text-gov-gray-b">{formatearFechaHora(item.fecha)}</span>
+                      </div>
+                      <div className="text-[12px] text-gov-gray-a">
+                        {item.funcionarioNombre}
+                        {item.funcionarioRol && ` (${ETIQUETAS_ROL[item.funcionarioRol] ?? item.funcionarioRol})`}
+                      </div>
+                      {item.observaciones && (
+                        <div className="mt-1 text-[12px] italic text-gov-gray-a">"{item.observaciones}"</div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           )}
 

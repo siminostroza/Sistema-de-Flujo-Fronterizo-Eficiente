@@ -50,3 +50,18 @@ export async function obtenerHistorial(): Promise<HistorialItem[]> {
   const { data } = await api.get<HistorialItem[]>('/fiscalizacion/historial')
   return data
 }
+
+/** Registro de auditoría de un expediente específico (RF05): quién hizo qué, sin importar el rol. */
+export interface AuditoriaExpedienteItem {
+  fecha: string
+  accion: string
+  funcionarioNombre: string
+  funcionarioRol: string | null
+  observaciones: string | null
+}
+
+/** GET /api/fiscalizacion/{codigo}/auditoria — historial completo de un expediente, visible entre roles (RF05). */
+export async function obtenerAuditoriaExpediente(codigo: string): Promise<AuditoriaExpedienteItem[]> {
+  const { data } = await api.get<AuditoriaExpedienteItem[]>(`/fiscalizacion/${codigo}/auditoria`)
+  return data
+}

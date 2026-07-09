@@ -10,6 +10,8 @@ import { mensajeDeError } from '../services/authService'
 import {
   agregarMascota,
   agregarMenor,
+  actualizarMascota,
+  actualizarMenor,
   actualizarViaje,
   crearViaje,
   eliminarMascota,
@@ -29,7 +31,7 @@ import {
   type MenorInfo,
 } from '../services/viajeService'
 import { obtenerQR, type QrResponse } from '../services/qrService'
-import { validarRut, formatearRutInput } from '../utils/rut'
+import { validarRut, formatearRutInput, calcularDigitoVerificador } from '../utils/rut'
 
 const PASOS_FRONTERIZOS = ['Los Libertadores', 'Chungará', 'Pino Hachado', 'Pehuenche']
 const MOTIVOS = ['Turismo', 'Trabajo', 'Estudio', 'Tránsito']
@@ -87,6 +89,339 @@ function esMenorDeEdad(fechaNacimiento: string, fechaIngreso: string): boolean {
   const limite = new Date(fechaIngreso)
   limite.setFullYear(limite.getFullYear() - 18)
   return nacimiento > limite
+}
+
+/**
+ * Card de un menor ya guardado, con edición NO destructiva: "Editar" solo
+ * abre un formulario local con los datos actuales; nada se envía al backend
+ * hasta apretar "Guardar cambios", y "Cancelar" descarta el borrador sin
+ * tocar lo guardado. Solo actualiza texto (PUT, sin archivos) — los
+ * documentos se ven/reemplazan aparte con AdjuntoConReemplazo, siempre
+ * visibles tanto en modo lectura como edición.
+ */
+function MenorGuardadoCard({
+  menor,
+  idViaje,
+  fechaIngreso,
+  onActualizado,
+  onEliminar,
+  eliminando,
+}: {
+  menor: MenorInfo
+  idViaje: number
+  fechaIngreso: string
+  onActualizado: (menores: MenorInfo[]) => void
+  onEliminar: (idMenor: number) => void
+  eliminando: boolean
+}) {
+  const [editando, setEditando] = useState(false)
+  const [nombre, setNombre] = useState(menor.nombre)
+  const [rut, setRut] = useState(menor.rut)
+  const [fechaNacimiento, setFechaNacimiento] = useState(menor.fechaNacimiento)
+  const [requiereAutorizacion, setRequiereAutorizacion] = useState(menor.requiereAutorizacion)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const iniciarEdicion = () => {
+    setNombre(menor.nombre)
+    setRut(menor.rut)
+    setFechaNacimiento(menor.fechaNacimiento)
+    setRequiereAutorizacion(menor.requiereAutorizacion)
+    setError('')
+    setEditando(true)
+  }
+
+  const guardar = async () => {
+    setError('')
+    if (!nombre.trim() || !rut.trim() || !fechaNacimiento) {
+      setError('Completa todos los datos del menor')
+      return
+    }
+    if (!validarRut(rut)) {
+      const dvCorrecto = calcularDigitoVerificador(rut)
+      const cuerpo = rut.split('-')[0]
+      setError(
+        dvCorrecto
+          ? `El RUT no es válido (el dígito verificador de ${cuerpo} debería ser ${dvCorrecto})`
+          : 'El RUT no es válido',
+      )
+      return
+    }
+    if (!esMenorDeEdad(fechaNacimiento, fechaIngreso)) {
+      setError('La fecha de nacimiento no corresponde a un menor de edad')
+      return
+    }
+    setGuardando(true)
+    try {
+      const viajeActualizado = await actualizarMenor(idViaje, menor.idMenor, {
+        nombre: nombre.trim(),
+        rut,
+        fechaNacimiento,
+        requiereAutorizacion,
+      })
+      onActualizado(viajeActualizado.menores)
+      setEditando(false)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const documentos = (
+    <div className="flex flex-wrap gap-3">
+      <AdjuntoConReemplazo
+        url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/carnet-identidad`}
+        etiqueta={`Carnet de identidad — ${menor.nombre}`}
+        puedeReemplazar
+        onSubir={(archivo) => reemplazarArchivoMenor(idViaje, menor.idMenor, 'carnet-identidad', archivo)}
+      />
+      <AdjuntoConReemplazo
+        url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/papeles-antecedentes`}
+        etiqueta={`Papeles de antecedentes — ${menor.nombre}`}
+        puedeReemplazar
+        onSubir={(archivo) => reemplazarArchivoMenor(idViaje, menor.idMenor, 'papeles-antecedentes', archivo)}
+      />
+      {menor.requiereAutorizacion && (
+        <AdjuntoConReemplazo
+          url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/permiso-notarial`}
+          etiqueta={`Permiso notarial — ${menor.nombre}`}
+          puedeReemplazar
+          onSubir={(archivo) => reemplazarArchivoMenor(idViaje, menor.idMenor, 'permiso-notarial', archivo)}
+        />
+      )}
+    </div>
+  )
+
+  if (!editando) {
+    return (
+      <div className="rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[13px] text-gov-gray-a">
+            <span className="font-semibold text-gov-black">{menor.nombre}</span>
+            {' · '}
+            {menor.rut}
+          </span>
+          <div className="flex shrink-0 gap-3">
+            <button
+              type="button"
+              onClick={iniciarEdicion}
+              className="cursor-pointer text-[12px] font-semibold text-gov-primary"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onEliminar(menor.idMenor)}
+              disabled={eliminando}
+              className="cursor-pointer text-[12px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
+            >
+              {eliminando ? 'Quitando…' : 'Quitar'}
+            </button>
+          </div>
+        </div>
+        {documentos}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border border-gov-primary bg-white p-3">
+      <label className={labelClass}>Nombre del Menor</label>
+      <input
+        type="text"
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        disabled={guardando}
+        className={inputClass}
+      />
+      <label className={labelClass}>RUT del Menor</label>
+      <input
+        type="text"
+        value={rut}
+        onChange={(e) => setRut(formatearRutInput(e.target.value))}
+        disabled={guardando}
+        className={inputClass}
+      />
+      <label className={labelClass}>Fecha de Nacimiento</label>
+      <DateInput value={fechaNacimiento} onChange={setFechaNacimiento} disabled={guardando} className={inputClass} />
+      <label className={labelClass}>¿Requiere Autorización Notarial?</label>
+      <select
+        value={requiereAutorizacion ? 'true' : 'false'}
+        onChange={(e) => setRequiereAutorizacion(e.target.value === 'true')}
+        disabled={guardando}
+        className={inputClass}
+      >
+        <option value="false">No requiere</option>
+        <option value="true">Sí requiere</option>
+      </select>
+
+      <ErrorPaso mensaje={error} />
+
+      <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando}
+          className="flex-1 cursor-pointer rounded-md bg-gov-primary px-3 py-2 text-[13px] font-bold text-white hover:bg-gov-primary-dark disabled:cursor-default disabled:bg-gov-accent"
+        >
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditando(false)}
+          disabled={guardando}
+          className="flex-1 cursor-pointer rounded-md bg-gov-neutral px-3 py-2 text-[13px] font-bold text-gov-gray-a disabled:cursor-default disabled:opacity-60"
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {documentos}
+    </div>
+  )
+}
+
+/** Card de una mascota ya guardada; mismo criterio de edición no destructiva que {@link MenorGuardadoCard}. */
+function MascotaGuardadaCard({
+  mascota,
+  idViaje,
+  onActualizado,
+  onEliminar,
+  eliminando,
+}: {
+  mascota: MascotaInfo
+  idViaje: number
+  onActualizado: (mascotas: MascotaInfo[]) => void
+  onEliminar: (idMascota: number) => void
+  eliminando: boolean
+}) {
+  const [editando, setEditando] = useState(false)
+  const [tipoAnimal, setTipoAnimal] = useState(mascota.tipoAnimal)
+  const [numeroChip, setNumeroChip] = useState(mascota.numeroChip)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const iniciarEdicion = () => {
+    setTipoAnimal(mascota.tipoAnimal)
+    setNumeroChip(mascota.numeroChip)
+    setError('')
+    setEditando(true)
+  }
+
+  const guardar = async () => {
+    setError('')
+    if (!tipoAnimal.trim() || !numeroChip.trim()) {
+      setError('Completa el tipo de animal y el número de chip')
+      return
+    }
+    setGuardando(true)
+    try {
+      const viajeActualizado = await actualizarMascota(idViaje, mascota.idMascota, {
+        tipoAnimal: tipoAnimal.trim(),
+        numeroChip: numeroChip.trim(),
+      })
+      onActualizado(viajeActualizado.mascotas)
+      setEditando(false)
+    } catch (err) {
+      setError(mensajeDeError(err))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const documentos = (
+    <div className="flex flex-wrap gap-3">
+      <AdjuntoConReemplazo
+        url={`/viajes/${idViaje}/archivos/mascotas/${mascota.idMascota}/certificado-chip`}
+        etiqueta={`Certificado del chip — ${mascota.tipoAnimal}`}
+        puedeReemplazar
+        onSubir={(archivo) => reemplazarArchivoMascota(idViaje, mascota.idMascota, 'certificado-chip', archivo)}
+      />
+      <AdjuntoConReemplazo
+        url={`/viajes/${idViaje}/archivos/mascotas/${mascota.idMascota}/carnet-vacunacion`}
+        etiqueta={`Carnet de vacunación — ${mascota.tipoAnimal}`}
+        puedeReemplazar
+        onSubir={(archivo) => reemplazarArchivoMascota(idViaje, mascota.idMascota, 'carnet-vacunacion', archivo)}
+      />
+    </div>
+  )
+
+  if (!editando) {
+    return (
+      <div className="rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2.5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[13px] text-gov-gray-a">
+            <span className="font-semibold text-gov-black">{mascota.tipoAnimal}</span>
+            {' · chip '}
+            {mascota.numeroChip}
+          </span>
+          <div className="flex shrink-0 gap-3">
+            <button
+              type="button"
+              onClick={iniciarEdicion}
+              className="cursor-pointer text-[12px] font-semibold text-gov-primary"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onEliminar(mascota.idMascota)}
+              disabled={eliminando}
+              className="cursor-pointer text-[12px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
+            >
+              {eliminando ? 'Quitando…' : 'Quitar'}
+            </button>
+          </div>
+        </div>
+        {documentos}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border border-gov-primary bg-white p-3">
+      <label className={labelClass}>Tipo de animal</label>
+      <input
+        type="text"
+        value={tipoAnimal}
+        onChange={(e) => setTipoAnimal(e.target.value)}
+        disabled={guardando}
+        className={inputClass}
+      />
+      <label className={labelClass}>Número de chip</label>
+      <input
+        type="text"
+        value={numeroChip}
+        onChange={(e) => setNumeroChip(e.target.value)}
+        disabled={guardando}
+        className={inputClass}
+      />
+
+      <ErrorPaso mensaje={error} />
+
+      <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando}
+          className="flex-1 cursor-pointer rounded-md bg-gov-primary px-3 py-2 text-[13px] font-bold text-white hover:bg-gov-primary-dark disabled:cursor-default disabled:bg-gov-accent"
+        >
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditando(false)}
+          disabled={guardando}
+          className="flex-1 cursor-pointer rounded-md bg-gov-neutral px-3 py-2 text-[13px] font-bold text-gov-gray-a disabled:cursor-default disabled:opacity-60"
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {documentos}
+    </div>
+  )
 }
 
 interface MascotaForm {
@@ -302,7 +637,7 @@ function RegistroViaje() {
       prev.map((m, idx) => (idx === i ? { ...m, [campo]: archivo } : m)),
     )
 
-  /** Quita un menor ya guardado (RF02). */
+  /** Quita un menor ya guardado, definitivamente (RF02). */
   const quitarMenorGuardado = async (idMenor: number) => {
     if (!idViaje) return
     setError('')
@@ -317,40 +652,7 @@ function RegistroViaje() {
     }
   }
 
-  /**
-   * "Edita" un menor ya guardado: lo quita y precarga sus datos en una fila
-   * nueva editable. No hay un PUT propio para menores porque los archivos
-   * adjuntos no se pueden precargar en un {@code <input type="file">} — de
-   * todas formas habría que volver a subirlos, así que quitar y volver a
-   * agregar logra lo mismo con un solo camino de código.
-   */
-  const editarMenorGuardado = async (menor: MenorInfo) => {
-    if (!idViaje) return
-    setError('')
-    setQuitandoMenor(menor.idMenor)
-    try {
-      const viajeActualizado = await eliminarMenor(idViaje, menor.idMenor)
-      setMenoresGuardados(viajeActualizado.menores)
-      setMenoresNuevos((prev) => [
-        ...prev,
-        {
-          nombre: menor.nombre,
-          rut: menor.rut,
-          fechaNacimiento: menor.fechaNacimiento,
-          requiereAutorizacion: menor.requiereAutorizacion,
-          carnetIdentidad: null,
-          papelesAntecedentes: null,
-          permisoNotarial: null,
-        },
-      ])
-    } catch (err) {
-      setError(mensajeDeError(err))
-    } finally {
-      setQuitandoMenor(null)
-    }
-  }
-
-  /** Quita una mascota ya guardada (RF02). */
+  /** Quita una mascota ya guardada, definitivamente (RF02). */
   const quitarMascotaGuardada = async (idMascota: number) => {
     if (!idViaje) return
     setError('')
@@ -358,30 +660,6 @@ function RegistroViaje() {
     try {
       const viajeActualizado = await eliminarMascota(idViaje, idMascota)
       setMascotasGuardadas(viajeActualizado.mascotas)
-    } catch (err) {
-      setError(mensajeDeError(err))
-    } finally {
-      setQuitandoMascota(null)
-    }
-  }
-
-  /** "Edita" una mascota ya guardada; mismo criterio que {@link editarMenorGuardado}. */
-  const editarMascotaGuardada = async (mascota: MascotaInfo) => {
-    if (!idViaje) return
-    setError('')
-    setQuitandoMascota(mascota.idMascota)
-    try {
-      const viajeActualizado = await eliminarMascota(idViaje, mascota.idMascota)
-      setMascotasGuardadas(viajeActualizado.mascotas)
-      setMascotasNuevas((prev) => [
-        ...prev,
-        {
-          tipoAnimal: mascota.tipoAnimal,
-          numeroChip: mascota.numeroChip,
-          certificadoChip: null,
-          carnetVacunacion: null,
-        },
-      ])
     } catch (err) {
       setError(mensajeDeError(err))
     } finally {
@@ -418,7 +696,13 @@ function RegistroViaje() {
       }
       if (!validarRut(menor.rut)) {
         setCamposInvalidos(new Set([`menor-${i}-rut`]))
-        setError(`El RUT del menor "${menor.nombre}" no es válido`)
+        const dvCorrecto = calcularDigitoVerificador(menor.rut)
+        const cuerpo = menor.rut.split('-')[0]
+        setError(
+          dvCorrecto
+            ? `El RUT del menor "${menor.nombre}" no es válido (el dígito verificador de ${cuerpo} debería ser ${dvCorrecto})`
+            : `El RUT del menor "${menor.nombre}" no es válido`,
+        )
         return
       }
       if (!esMenorDeEdad(menor.fechaNacimiento, fechaIngreso)) {
@@ -770,67 +1054,18 @@ function RegistroViaje() {
                 Si viaja con menores de edad, agrégalos aquí. Este paso es opcional.
               </div>
 
-              {menoresGuardados.length > 0 && (
+              {menoresGuardados.length > 0 && idViaje && (
                 <div className="mb-3 flex flex-col gap-2">
                   {menoresGuardados.map((menor) => (
-                    <div
+                    <MenorGuardadoCard
                       key={menor.idMenor}
-                      className="rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2.5"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[13px] text-gov-gray-a">
-                          <span className="font-semibold text-gov-black">{menor.nombre}</span>
-                          {' · '}
-                          {menor.rut}
-                        </span>
-                        <div className="flex shrink-0 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => editarMenorGuardado(menor)}
-                            disabled={quitandoMenor === menor.idMenor}
-                            className="cursor-pointer text-[12px] font-semibold text-gov-primary disabled:cursor-default disabled:opacity-60"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => quitarMenorGuardado(menor.idMenor)}
-                            disabled={quitandoMenor === menor.idMenor}
-                            className="cursor-pointer text-[12px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
-                          >
-                            {quitandoMenor === menor.idMenor ? 'Quitando…' : 'Quitar'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <AdjuntoConReemplazo
-                          url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/carnet-identidad`}
-                          etiqueta={`Carnet de identidad — ${menor.nombre}`}
-                          puedeReemplazar
-                          onSubir={(archivo) =>
-                            reemplazarArchivoMenor(idViaje!, menor.idMenor, 'carnet-identidad', archivo)
-                          }
-                        />
-                        <AdjuntoConReemplazo
-                          url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/papeles-antecedentes`}
-                          etiqueta={`Papeles de antecedentes — ${menor.nombre}`}
-                          puedeReemplazar
-                          onSubir={(archivo) =>
-                            reemplazarArchivoMenor(idViaje!, menor.idMenor, 'papeles-antecedentes', archivo)
-                          }
-                        />
-                        {menor.requiereAutorizacion && (
-                          <AdjuntoConReemplazo
-                            url={`/viajes/${idViaje}/archivos/menores/${menor.idMenor}/permiso-notarial`}
-                            etiqueta={`Permiso notarial — ${menor.nombre}`}
-                            puedeReemplazar
-                            onSubir={(archivo) =>
-                              reemplazarArchivoMenor(idViaje!, menor.idMenor, 'permiso-notarial', archivo)
-                            }
-                          />
-                        )}
-                      </div>
-                    </div>
+                      menor={menor}
+                      idViaje={idViaje}
+                      fechaIngreso={fechaIngreso}
+                      onActualizado={setMenoresGuardados}
+                      onEliminar={quitarMenorGuardado}
+                      eliminando={quitandoMenor === menor.idMenor}
+                    />
                   ))}
                 </div>
               )}
@@ -956,57 +1191,17 @@ function RegistroViaje() {
                 todos sus datos y documentos son obligatorios.
               </div>
 
-              {mascotasGuardadas.length > 0 && (
+              {mascotasGuardadas.length > 0 && idViaje && (
                 <div className="mb-3 flex flex-col gap-2">
                   {mascotasGuardadas.map((mascota) => (
-                    <div
+                    <MascotaGuardadaCard
                       key={mascota.idMascota}
-                      className="rounded-md border border-gov-neutral bg-gov-neutral px-3 py-2.5"
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[13px] text-gov-gray-a">
-                          <span className="font-semibold text-gov-black">{mascota.tipoAnimal}</span>
-                          {' · chip '}
-                          {mascota.numeroChip}
-                        </span>
-                        <div className="flex shrink-0 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => editarMascotaGuardada(mascota)}
-                            disabled={quitandoMascota === mascota.idMascota}
-                            className="cursor-pointer text-[12px] font-semibold text-gov-primary disabled:cursor-default disabled:opacity-60"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => quitarMascotaGuardada(mascota.idMascota)}
-                            disabled={quitandoMascota === mascota.idMascota}
-                            className="cursor-pointer text-[12px] font-semibold text-gov-secondary disabled:cursor-default disabled:opacity-60"
-                          >
-                            {quitandoMascota === mascota.idMascota ? 'Quitando…' : 'Quitar'}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <AdjuntoConReemplazo
-                          url={`/viajes/${idViaje}/archivos/mascotas/${mascota.idMascota}/certificado-chip`}
-                          etiqueta={`Certificado del chip — ${mascota.tipoAnimal}`}
-                          puedeReemplazar
-                          onSubir={(archivo) =>
-                            reemplazarArchivoMascota(idViaje!, mascota.idMascota, 'certificado-chip', archivo)
-                          }
-                        />
-                        <AdjuntoConReemplazo
-                          url={`/viajes/${idViaje}/archivos/mascotas/${mascota.idMascota}/carnet-vacunacion`}
-                          etiqueta={`Carnet de vacunación — ${mascota.tipoAnimal}`}
-                          puedeReemplazar
-                          onSubir={(archivo) =>
-                            reemplazarArchivoMascota(idViaje!, mascota.idMascota, 'carnet-vacunacion', archivo)
-                          }
-                        />
-                      </div>
-                    </div>
+                      mascota={mascota}
+                      idViaje={idViaje}
+                      onActualizado={setMascotasGuardadas}
+                      onEliminar={quitarMascotaGuardada}
+                      eliminando={quitandoMascota === mascota.idMascota}
+                    />
                   ))}
                 </div>
               )}

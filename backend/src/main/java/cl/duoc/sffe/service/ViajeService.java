@@ -274,14 +274,76 @@ public class ViajeService {
     }
 
     /**
-     * Quita un menor del expediente (RF02). El pasajero lo usa tanto para
-     * eliminarlo definitivamente como, desde el wizard, para "editarlo":
-     * primero se elimina y luego se vuelve a agregar con
-     * {@link #agregarMenor} con los datos corregidos (no hay un PUT propio
-     * porque los archivos adjuntos no se pueden precargar en un
-     * {@code <input type="file">}, así que de todas formas hay que volver a
-     * subirlos). Solo mientras el viaje sigue PENDIENTE, igual que el
-     * reemplazo de archivos en {@link ArchivoService}.
+     * Actualiza los datos de texto de un menor ya guardado (RF02): nombre,
+     * RUT, fecha de nacimiento y si requiere autorización notarial. No toca
+     * los archivos adjuntos (para eso está el reemplazo puntual por
+     * documento en {@link ArchivoService}) — así una corrección de datos no
+     * obliga a volver a subir carnet y papeles ya adjuntados. Si
+     * {@code requiereAutorizacion} pasa a true y el menor todavía no tiene
+     * permiso notarial adjunto, se rechaza: no se puede dejar esa exigencia
+     * sin el documento que la respalda.
+     */
+    @Transactional
+    public ViajeResponse actualizarMenor(String identificador, Integer idViaje, Integer idMenor,
+                                          MenorRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Menor menor = viaje.getMenores().stream()
+                .filter(m -> m.getIdMenor().equals(idMenor))
+                .findFirst()
+                .orElseThrow(() -> new ViajeException(HttpStatus.NOT_FOUND, "El menor no pertenece a este expediente"));
+
+        String rutNormalizado = documentoValidator.normalizar(request.rut());
+        if (!documentoValidator.validarRut(rutNormalizado)) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST, "El RUT del menor no es válido");
+        }
+
+        LocalDate fechaNacimiento = request.fechaNacimiento();
+        if (fechaNacimiento.isAfter(LocalDate.now())) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST, "La fecha de nacimiento del menor no es válida");
+        }
+        boolean esMenorDeEdad = fechaNacimiento.isAfter(viaje.getFechaIngreso().minusYears(18));
+        if (!esMenorDeEdad) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "La fecha de nacimiento indicada corresponde a una persona mayor de edad");
+        }
+
+        boolean requiereAutorizacion =
+                request.requiereAutorizacion() != null && request.requiereAutorizacion();
+        if (requiereAutorizacion && menor.getPermisoNotarialPath() == null) {
+            throw new ViajeException(HttpStatus.BAD_REQUEST,
+                    "Adjunta el permiso notarial antes de marcar que el menor lo requiere");
+        }
+
+        menor.setNombre(request.nombre());
+        menor.setRut(rutNormalizado);
+        menor.setFechaNacimiento(fechaNacimiento);
+        menor.setRequiereAutorizacion(requiereAutorizacion);
+
+        return ViajeResponse.from(viaje);
+    }
+
+    /** Actualiza el tipo de animal y el número de chip de una mascota ya guardada (RF02); no toca sus archivos. */
+    @Transactional
+    public ViajeResponse actualizarMascota(String identificador, Integer idViaje, Integer idMascota,
+                                            MascotaRequest request) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        Mascota mascota = viaje.getMascotas().stream()
+                .filter(m -> m.getIdMascota().equals(idMascota))
+                .findFirst()
+                .orElseThrow(() -> new ViajeException(HttpStatus.NOT_FOUND, "La mascota no pertenece a este expediente"));
+
+        mascota.setTipoAnimal(request.tipoAnimal());
+        mascota.setNumeroChip(request.numeroChip());
+
+        return ViajeResponse.from(viaje);
+    }
+
+    /**
+     * Quita un menor del expediente (RF02), definitivamente. Solo mientras
+     * el viaje sigue PENDIENTE, igual que el reemplazo de archivos en
+     * {@link ArchivoService}.
      */
     @Transactional
     public ViajeResponse eliminarMenor(String identificador, Integer idViaje, Integer idMenor) {

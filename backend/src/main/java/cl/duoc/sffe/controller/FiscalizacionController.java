@@ -1,5 +1,6 @@
 package cl.duoc.sffe.controller;
 
+import cl.duoc.sffe.dto.AuditoriaExpedienteItemResponse;
 import cl.duoc.sffe.dto.FiscalizacionRequest;
 import cl.duoc.sffe.dto.FiscalizacionResponse;
 import cl.duoc.sffe.dto.HistorialItemResponse;
@@ -68,6 +69,18 @@ public class FiscalizacionController {
     public ResponseEntity<List<HistorialItemResponse>> historial(Authentication authentication) {
         return ResponseEntity.ok(
                 fiscalizacionService.historialTurno(authentication.getName()));
+    }
+
+    /**
+     * Historial completo de un expediente (RF05): quién hizo qué sobre este
+     * mismo QR, sin importar el rol — así Aduana ve si PDI ya validó
+     * identidad, PDI ve si Aduana ya autorizó el ingreso, etc.
+     */
+    @GetMapping("/{codigo}/auditoria")
+    @PreAuthorize(ROLES_FUNCIONARIO)
+    public ResponseEntity<List<AuditoriaExpedienteItemResponse>> auditoriaDeExpediente(
+            @PathVariable String codigo) {
+        return ResponseEntity.ok(fiscalizacionService.auditoriaDeExpediente(codigo));
     }
 
     /**

@@ -4,6 +4,7 @@ import {
   placeholderIdentificador,
   type TipoDocumento,
 } from '../../utils/documento'
+import { formatearRutInput } from '../../utils/rut'
 
 const inputClass =
   'mb-3.5 w-full rounded-md border border-gov-accent px-3 py-2.5 text-[15px] outline-none focus:border-gov-primary'
@@ -69,7 +70,13 @@ function DocumentoFields({
             type="text"
             placeholder={placeholderIdentificador(tipoDocumento)}
             value={identificador}
-            onChange={(e) => onIdentificadorChange(e.target.value)}
+            onChange={(e) =>
+              onIdentificadorChange(
+                // El guion antes del dígito verificador se inserta solo para RUT;
+                // pasaporte y cédula extranjera son alfanuméricos libres, sin esa estructura.
+                tipoDocumento === 'RUT' ? formatearRutInput(e.target.value) : e.target.value,
+              )
+            }
             className={inputClass}
             autoComplete="username"
           />
