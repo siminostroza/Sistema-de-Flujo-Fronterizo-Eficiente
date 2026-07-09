@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -102,6 +103,17 @@ public class ViajeController {
     }
 
     /**
+     * Quita un menor del expediente (RF02). Solo mientras el viaje sigue
+     * PENDIENTE; el wizard también lo usa para "editar" un menor ya
+     * guardado (lo quita y lo vuelve a agregar con los datos corregidos).
+     */
+    @DeleteMapping("/{id}/menores/{idMenor}")
+    public ResponseEntity<ViajeResponse> eliminarMenor(
+            @PathVariable Integer id, @PathVariable Integer idMenor, Authentication authentication) {
+        return ResponseEntity.ok(viajeService.eliminarMenor(authentication.getName(), id, idMenor));
+    }
+
+    /**
      * Registra o actualiza el vehículo asociado al expediente (RF03).
      * Multipart: la parte {@code datos} lleva el JSON de
      * {@link VehiculoRequest}; {@code permisoCirculacion} es el documento
@@ -134,6 +146,13 @@ public class ViajeController {
                 .status(HttpStatus.CREATED)
                 .body(viajeService.agregarMascota(
                         authentication.getName(), id, request, certificadoChip, carnetVacunacion));
+    }
+
+    /** Quita una mascota del expediente (RF02). Solo mientras el viaje sigue PENDIENTE. */
+    @DeleteMapping("/{id}/mascotas/{idMascota}")
+    public ResponseEntity<ViajeResponse> eliminarMascota(
+            @PathVariable Integer id, @PathVariable Integer idMascota, Authentication authentication) {
+        return ResponseEntity.ok(viajeService.eliminarMascota(authentication.getName(), id, idMascota));
     }
 
     /** Guarda o actualiza la Declaración Jurada SAG del expediente (RF02). */

@@ -101,6 +101,10 @@ export interface Viaje extends ViajePayload {
   /** Motivo detallado del rechazo (RF05), visible en el ticket del pasajero. Nulo salvo RECHAZADO. */
   motivoRechazo: string | null
   createdAt: string
+  /** true si el pasajero adjuntó su carnet al registrarse; las cuentas semilla no lo tienen. */
+  carnetIdentidad: boolean
+  /** true si el pasajero adjuntó sus papeles de antecedentes al registrarse. */
+  papelesAntecedentes: boolean
   /** Lista de vehículos del viaje: principal y, opcionalmente, remolque (1:N). */
   vehiculos: VehiculoInfo[]
   /** Mascotas del viaje (RF02), visibles para toda fiscalización. */
@@ -179,6 +183,17 @@ export async function agregarMenor(
 }
 
 /**
+ * DELETE /api/viajes/{id}/menores/{idMenor} — quita un menor del expediente
+ * (RF02). Solo mientras el viaje sigue PENDIENTE; el wizard también lo usa
+ * para "editar" un menor ya guardado (lo quita y lo vuelve a agregar con los
+ * datos corregidos, ya que los archivos no se pueden precargar en el input).
+ */
+export async function eliminarMenor(idViaje: number, idMenor: number): Promise<Viaje> {
+  const { data } = await api.delete<Viaje>(`/viajes/${idViaje}/menores/${idMenor}`)
+  return data
+}
+
+/**
  * POST /api/viajes/{id}/vehiculo — registra o actualiza el vehículo del
  * expediente (RF03). Multipart: la parte "datos" lleva el JSON del vehículo;
  * el permiso de circulación es obligatorio (principal o remolque), visible
@@ -217,6 +232,12 @@ export async function agregarMascota(
     formData.append('carnetVacunacion', archivos.carnetVacunacion)
   }
   const { data } = await api.post<Viaje>(`/viajes/${idViaje}/mascotas`, formData)
+  return data
+}
+
+/** DELETE /api/viajes/{id}/mascotas/{idMascota} — quita una mascota del expediente (RF02); mismo criterio que {@link eliminarMenor}. */
+export async function eliminarMascota(idViaje: number, idMascota: number): Promise<Viaje> {
+  const { data } = await api.delete<Viaje>(`/viajes/${idViaje}/mascotas/${idMascota}`)
   return data
 }
 

@@ -24,6 +24,10 @@ public record ExpedienteResponse(
         String motivoViaje,
         EstadoViaje estadoViaje,
         EstadoQr estadoQr,
+        /** true si el pasajero adjuntó su carnet al registrarse (RF01); las cuentas semilla no lo tienen. */
+        boolean carnetIdentidad,
+        /** true si el pasajero adjuntó sus papeles de antecedentes al registrarse (RF01). */
+        boolean papelesAntecedentes,
         List<ViajeResponse.VehiculoInfo> vehiculos,
         List<ViajeResponse.MascotaInfo> mascotas,
         ViajeResponse.SagInfo declaracionSag,
@@ -43,6 +47,8 @@ public record ExpedienteResponse(
                 viaje.getMotivoViaje(),
                 viaje.getEstado(),
                 codigoQr.getEstado(),
+                usuario.getCarnetIdentidadPath() != null,
+                usuario.getPapelesAntecedentesPath() != null,
                 viaje.getVehiculos().stream().map(ViajeResponse.VehiculoInfo::from).toList(),
                 viaje.getMascotas().stream().map(ViajeResponse.MascotaInfo::from).toList(),
                 ViajeResponse.SagInfo.from(viaje.getDeclaracionSag()),

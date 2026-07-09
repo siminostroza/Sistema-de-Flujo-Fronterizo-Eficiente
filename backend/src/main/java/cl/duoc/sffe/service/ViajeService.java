@@ -9,6 +9,7 @@ import cl.duoc.sffe.dto.ViajeResponse;
 import cl.duoc.sffe.exception.AuthException;
 import cl.duoc.sffe.exception.ViajeException;
 import cl.duoc.sffe.model.DeclaracionSag;
+import cl.duoc.sffe.model.EstadoViaje;
 import cl.duoc.sffe.model.Mascota;
 import cl.duoc.sffe.model.Menor;
 import cl.duoc.sffe.model.Usuario;
@@ -270,6 +271,52 @@ public class ViajeService {
         // No se agrega manualmente a viaje.getMascotas(): igual que con menores
         // y vehículos, ViajeResponse.from relee la colección perezosa desde BD.
         return ViajeResponse.from(viaje);
+    }
+
+    /**
+     * Quita un menor del expediente (RF02). El pasajero lo usa tanto para
+     * eliminarlo definitivamente como, desde el wizard, para "editarlo":
+     * primero se elimina y luego se vuelve a agregar con
+     * {@link #agregarMenor} con los datos corregidos (no hay un PUT propio
+     * porque los archivos adjuntos no se pueden precargar en un
+     * {@code <input type="file">}, así que de todas formas hay que volver a
+     * subirlos). Solo mientras el viaje sigue PENDIENTE, igual que el
+     * reemplazo de archivos en {@link ArchivoService}.
+     */
+    @Transactional
+    public ViajeResponse eliminarMenor(String identificador, Integer idViaje, Integer idMenor) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        // Se quita de la colección del padre (no con menorRepository.delete):
+        // orphanRemoval=true en Viaje.menores se encarga del DELETE al hacer
+        // flush, y ViajeResponse.from(viaje) más abajo ve el cambio de
+        // inmediato porque lee la MISMA colección ya modificada en memoria,
+        // sin depender de que Hibernate reconsulte la BD a tiempo.
+        boolean existia = viaje.getMenores().removeIf(m -> m.getIdMenor().equals(idMenor));
+        if (!existia) {
+            throw new ViajeException(HttpStatus.NOT_FOUND, "El menor no pertenece a este expediente");
+        }
+        return ViajeResponse.from(viaje);
+    }
+
+    /** Quita una mascota del expediente (RF02); mismo criterio que {@link #eliminarMenor}. */
+    @Transactional
+    public ViajeResponse eliminarMascota(String identificador, Integer idViaje, Integer idMascota) {
+        Viaje viaje = obtenerViajeDelUsuario(identificador, idViaje);
+        verificarPendiente(viaje);
+        boolean existia = viaje.getMascotas().removeIf(m -> m.getIdMascota().equals(idMascota));
+        if (!existia) {
+            throw new ViajeException(HttpStatus.NOT_FOUND, "La mascota no pertenece a este expediente");
+        }
+        return ViajeResponse.from(viaje);
+    }
+
+    /** Solo se puede modificar la composición del grupo mientras el viaje no ha sido fiscalizado. */
+    private void verificarPendiente(Viaje viaje) {
+        if (viaje.getEstado() != EstadoViaje.PENDIENTE) {
+            throw new ViajeException(HttpStatus.CONFLICT,
+                    "No puedes modificar el expediente una vez que ya fue fiscalizado");
+        }
     }
 
     /** Guarda o actualiza la Declaración Jurada SAG del expediente, relación 1:1 (RF02). */

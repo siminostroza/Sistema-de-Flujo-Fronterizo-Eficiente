@@ -24,6 +24,10 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
   const [contentType, setContentType] = useState('')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(false)
+  // 404 = el documento genuinemente no fue adjuntado (ej. cuentas semilla sin
+  // carnet/papeles); se muestra distinto de un error real (red, 500) para no
+  // alarmar por algo esperado.
+  const [noExiste, setNoExiste] = useState(false)
   const [ampliado, setAmpliado] = useState(false)
   const objectUrlRef = useRef<string | null>(null)
 
@@ -56,6 +60,7 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
     }
     setCargando(true)
     setError(false)
+    setNoExiste(false)
     try {
       const respuesta = await api.get(url, { responseType: 'blob' })
       const tipo = respuesta.headers['content-type'] ?? respuesta.data.type
@@ -64,8 +69,13 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
       setContentType(tipo)
       setBlobUrl(objectUrl)
       setAmpliado(true)
-    } catch {
-      setError(true)
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 404) {
+        setNoExiste(true)
+      } else {
+        setError(true)
+      }
     } finally {
       setCargando(false)
     }
@@ -78,9 +88,9 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
       <button
         type="button"
         onClick={onClick}
-        disabled={cargando}
-        aria-label={`Ver ${etiqueta}`}
-        title={etiqueta}
+        disabled={cargando || noExiste}
+        aria-label={noExiste ? `${etiqueta} — sin documento` : `Ver ${etiqueta}`}
+        title={noExiste ? 'No hay documento adjuntado' : etiqueta}
         className="relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-md border border-gov-accent bg-gov-neutral disabled:cursor-default"
       >
         {cargando && (
@@ -93,14 +103,20 @@ function AdjuntoViewer({ url, etiqueta }: AdjuntoViewerProps) {
             Error
           </span>
         )}
-        {!cargando && !error && blobUrl && (
+        {!cargando && noExiste && (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-gov-gray-b">
+            <span className="text-[16px] leading-none">✗</span>
+            <span className="text-[9px] font-semibold">Sin adjuntar</span>
+          </span>
+        )}
+        {!cargando && !error && !noExiste && blobUrl && (
           esPdf ? (
             <embed src={blobUrl} type="application/pdf" className="pointer-events-none h-full w-full" />
           ) : (
             <img src={blobUrl} alt={etiqueta} className="h-full w-full object-cover" />
           )
         )}
-        {!cargando && !error && !blobUrl && (
+        {!cargando && !error && !noExiste && !blobUrl && (
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-gov-gray-a">
             <span className="text-[20px] leading-none">📄</span>
             <span className="text-[9px] font-semibold">Ver</span>

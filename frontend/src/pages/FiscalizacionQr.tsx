@@ -308,11 +308,19 @@ function ExpedientePanel({ expediente, codigo }: { expediente: ExpedienteRespons
         </div>
         {expediente.tipoDocumento !== 'SIN_DOCUMENTO' && (
           <div className="mt-3 flex gap-3">
-            <AdjuntoViewer url={`${base}/usuario/carnet-identidad`} etiqueta="Carnet de identidad del pasajero" />
-            <AdjuntoViewer
-              url={`${base}/usuario/papeles-antecedentes`}
-              etiqueta="Papeles de antecedentes del pasajero"
-            />
+            {expediente.carnetIdentidad ? (
+              <AdjuntoViewer url={`${base}/usuario/carnet-identidad`} etiqueta="Carnet de identidad del pasajero" />
+            ) : (
+              <span className="text-[15px] text-gov-black">✗ Carnet no adjuntado</span>
+            )}
+            {expediente.papelesAntecedentes ? (
+              <AdjuntoViewer
+                url={`${base}/usuario/papeles-antecedentes`}
+                etiqueta="Papeles de antecedentes del pasajero"
+              />
+            ) : (
+              <span className="text-[15px] text-gov-black">✗ Papeles no adjuntados</span>
+            )}
           </div>
         )}
       </section>

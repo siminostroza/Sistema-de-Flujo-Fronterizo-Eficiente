@@ -21,6 +21,10 @@ export interface ExpedienteResponse {
   motivoViaje: string
   estadoViaje: EstadoViaje
   estadoQr: EstadoQr
+  /** true si el pasajero adjuntó su carnet al registrarse; las cuentas semilla no lo tienen. */
+  carnetIdentidad: boolean
+  /** true si el pasajero adjuntó sus papeles de antecedentes al registrarse. */
+  papelesAntecedentes: boolean
   vehiculos: VehiculoInfo[]
   mascotas: MascotaInfo[]
   declaracionSag: SagInfo | null

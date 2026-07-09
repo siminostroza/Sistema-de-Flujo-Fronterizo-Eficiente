@@ -4,6 +4,7 @@ import TopBar from '../components/layout/TopBar'
 import Banner from '../components/layout/Banner'
 import Footer from '../components/layout/Footer'
 import DocumentoFields from '../components/ui/DocumentoFields'
+import DateInput from '../components/ui/DateInput'
 import { useAuth } from '../context/AuthContext'
 import {
   login as loginRequest,
@@ -272,11 +273,10 @@ function Login() {
             <label className={labelClass} htmlFor="fecha-nacimiento">
               Fecha de nacimiento
             </label>
-            <input
+            <DateInput
               id="fecha-nacimiento"
-              type="date"
               value={fechaNacimiento}
-              onChange={(e) => setFechaNacimiento(e.target.value)}
+              onChange={setFechaNacimiento}
               className={inputClass}
             />
 

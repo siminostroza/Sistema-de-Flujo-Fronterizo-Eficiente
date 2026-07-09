@@ -30,6 +30,10 @@ public record ViajeResponse(
         /** Motivo detallado del rechazo (RF05), visible en el ticket del pasajero. Nulo salvo RECHAZADO. */
         String motivoRechazo,
         LocalDateTime createdAt,
+        /** true si el pasajero adjuntó su carnet al registrarse (RF01); las cuentas semilla no lo tienen. */
+        boolean carnetIdentidad,
+        /** true si el pasajero adjuntó sus papeles de antecedentes al registrarse (RF01). */
+        boolean papelesAntecedentes,
         List<VehiculoInfo> vehiculos,
         List<MascotaInfo> mascotas,
         SagInfo sag,
@@ -49,6 +53,8 @@ public record ViajeResponse(
                 viaje.getEstado(),
                 viaje.getMotivoRechazo(),
                 viaje.getCreatedAt(),
+                viaje.getUsuario().getCarnetIdentidadPath() != null,
+                viaje.getUsuario().getPapelesAntecedentesPath() != null,
                 viaje.getVehiculos().stream().map(VehiculoInfo::from).toList(),
                 viaje.getMascotas().stream().map(MascotaInfo::from).toList(),
                 SagInfo.from(viaje.getDeclaracionSag()),

@@ -22,42 +22,13 @@ import {
 import { obtenerQR, type QrResponse } from '../services/qrService'
 import { estadoBadge } from '../utils/estado'
 import { etiquetaTipoDocumento } from '../utils/documento'
-import AdjuntoViewer from '../components/ui/AdjuntoViewer'
-import ReemplazarArchivoButton from '../components/ui/ReemplazarArchivoButton'
+import AdjuntoConReemplazo from '../components/ui/AdjuntoConReemplazo'
 
 const cardClass = 'mb-4 rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
 const filaClass = 'mb-3 last:mb-0'
 const labelFilaClass = 'text-[13px] font-semibold text-gov-gray-a'
 const valorFilaClass = 'text-[15px] text-gov-black'
-
-/**
- * Miniatura de un adjunto ya guardado, con un botón "Reemplazar" opcional
- * (RF01/RF02/RF03: solo mientras el viaje sigue PENDIENTE). Cada instancia
- * lleva su propia versión local: al reemplazar, solo esa miniatura se
- * refresca (no todo el resto de los adjuntos de la página).
- */
-function AdjuntoConReemplazo({
-  url,
-  etiqueta,
-  puedeReemplazar,
-  onSubir,
-}: {
-  url: string
-  etiqueta: string
-  puedeReemplazar: boolean
-  onSubir: (archivo: File) => Promise<void>
-}) {
-  const [version, setVersion] = useState(0)
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <AdjuntoViewer key={version} url={url} etiqueta={etiqueta} />
-      {puedeReemplazar && (
-        <ReemplazarArchivoButton onSubir={onSubir} onReemplazado={() => setVersion((v) => v + 1)} />
-      )}
-    </div>
-  )
-}
 
 /**
  * Estado del trámite y código QR de un expediente (RF04, RF05). El viaje a
@@ -197,6 +168,12 @@ function EstadoTramite() {
                 alt="Código QR del expediente"
                 className="mx-auto h-[220px] w-[220px]"
               />
+              <p className="mt-2 text-[11px] text-gov-gray-b">
+                Si el QR no se puede leer, el funcionario puede ingresar este código manualmente:
+              </p>
+              <p className="mt-1 break-all rounded-md bg-gov-neutral px-3 py-2 text-center font-mono text-[13px] text-gov-black">
+                {qr.codigo}
+              </p>
               <button
                 onClick={onDescargar}
                 className="mt-3 w-full cursor-pointer rounded-md bg-gov-primary px-3 py-2.5 text-[15px] font-bold text-white hover:bg-gov-primary-dark"
@@ -295,18 +272,26 @@ function EstadoTramite() {
               <div className={filaClass}>
                 <div className={labelFilaClass}>Mis documentos</div>
                 <div className="mt-1.5 flex gap-3">
-                  <AdjuntoConReemplazo
-                    url={`/viajes/${viaje.idViaje}/archivos/usuario/carnet-identidad`}
-                    etiqueta="Mi carnet de identidad"
-                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
-                    onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'carnet-identidad', archivo)}
-                  />
-                  <AdjuntoConReemplazo
-                    url={`/viajes/${viaje.idViaje}/archivos/usuario/papeles-antecedentes`}
-                    etiqueta="Mis papeles de antecedentes"
-                    puedeReemplazar={viaje.estado === 'PENDIENTE'}
-                    onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'papeles-antecedentes', archivo)}
-                  />
+                  {viaje.carnetIdentidad ? (
+                    <AdjuntoConReemplazo
+                      url={`/viajes/${viaje.idViaje}/archivos/usuario/carnet-identidad`}
+                      etiqueta="Mi carnet de identidad"
+                      puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                      onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'carnet-identidad', archivo)}
+                    />
+                  ) : (
+                    <span className="text-[13px] text-gov-gray-b">✗ Carnet no adjuntado</span>
+                  )}
+                  {viaje.papelesAntecedentes ? (
+                    <AdjuntoConReemplazo
+                      url={`/viajes/${viaje.idViaje}/archivos/usuario/papeles-antecedentes`}
+                      etiqueta="Mis papeles de antecedentes"
+                      puedeReemplazar={viaje.estado === 'PENDIENTE'}
+                      onSubir={(archivo) => reemplazarArchivoUsuario(viaje.idViaje, 'papeles-antecedentes', archivo)}
+                    />
+                  ) : (
+                    <span className="text-[13px] text-gov-gray-b">✗ Papeles no adjuntados</span>
+                  )}
                 </div>
               </div>
             )}
