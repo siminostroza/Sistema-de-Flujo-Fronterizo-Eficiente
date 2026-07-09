@@ -22,7 +22,7 @@ import {
   type MenorInfo,
 } from '../services/viajeService'
 import { obtenerQR, type QrResponse } from '../services/qrService'
-import { validarRut } from '../utils/rut'
+import { validarRut, formatearRutInput } from '../utils/rut'
 
 const PASOS_FRONTERIZOS = ['Los Libertadores', 'Chungará', 'Pino Hachado', 'Pehuenche']
 const MOTIVOS = ['Turismo', 'Trabajo', 'Estudio', 'Tránsito']
@@ -32,13 +32,27 @@ const STEPS = ['Viaje', 'Vehículo', 'Declaración', 'Código QR', 'Finalizar']
 
 const cardClass = 'mb-4 rounded-lg border border-gov-neutral bg-white p-5'
 const cardTitleClass = 'mb-3 text-sm font-bold text-gov-black'
-const inputClass =
-  'mb-3.5 w-full rounded-md border border-gov-accent px-3 py-2.5 text-[15px] outline-none focus:border-gov-primary'
+const inputBaseClass =
+  'mb-3.5 w-full rounded-md border px-3 py-2.5 text-[15px] outline-none focus:border-gov-primary'
+const inputClass = `${inputBaseClass} border-gov-accent`
 const labelClass = 'mb-1 block text-[13px] font-semibold text-gov-gray-a'
 const btnPrimario =
   'w-full rounded-md px-3 py-3 text-[15px] font-bold text-white cursor-pointer bg-gov-primary hover:bg-gov-primary-dark disabled:cursor-default disabled:bg-gov-accent'
 const btnSecundario =
   'mt-2 w-full cursor-pointer rounded-md bg-gov-neutral px-3 py-3 text-[15px] font-bold text-gov-gray-a'
+
+/** Mensaje de error de un paso, siempre justo encima de su botón principal. */
+function ErrorPaso({ mensaje }: { mensaje: string }) {
+  if (!mensaje) return null
+  return (
+    <p
+      role="alert"
+      className="mb-3 rounded-md bg-estado-rechazado-bg px-2.5 py-2 text-[13px] text-estado-rechazado-text"
+    >
+      {mensaje}
+    </p>
+  )
+}
 
 interface MenorForm {
   nombre: string
@@ -102,6 +116,10 @@ function RegistroViaje() {
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
+  // Nombres de campo (ver `clase`/`limpiar` más abajo) que fallaron la última
+  // validación: se les marca el borde en rojo tenue hasta que el usuario
+  // interactúe con ese campo puntual o reintente la acción.
+  const [camposInvalidos, setCamposInvalidos] = useState<Set<string>>(new Set())
 
   // Paso 1 — Viaje
   const [idViaje, setIdViaje] = useState<number | null>(null)
@@ -217,7 +235,24 @@ function RegistroViaje() {
 
   const irAtras = () => {
     setError('')
+    setCamposInvalidos(new Set())
     setCurrentStep((s) => Math.max(0, s - 1))
+  }
+
+  /** Borde rojo tenue si `campo` quedó marcado inválido en la última validación. */
+  const clase = (campo: string): string =>
+    `${inputBaseClass} ${
+      camposInvalidos.has(campo) ? 'border-gov-secondary/70 bg-estado-rechazado-bg' : 'border-gov-accent'
+    }`
+
+  /** Quita el resaltado rojo de un campo puntual al interactuar con él. */
+  const limpiar = (campo: string) => {
+    setCamposInvalidos((prev) => {
+      if (!prev.has(campo)) return prev
+      const siguiente = new Set(prev)
+      siguiente.delete(campo)
+      return siguiente
+    })
   }
 
   // --- Paso 1: Viaje ---
@@ -256,39 +291,69 @@ function RegistroViaje() {
   const guardarViaje = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setCamposInvalidos(new Set())
 
-    if (!fechaIngreso || !destino.trim() || !pasoFronterizo || !motivoViaje) {
+    const faltantesViaje: string[] = []
+    if (!fechaIngreso) faltantesViaje.push('fechaIngreso')
+    if (!destino.trim()) faltantesViaje.push('destino')
+    if (!pasoFronterizo) faltantesViaje.push('pasoFronterizo')
+    if (!motivoViaje) faltantesViaje.push('motivoViaje')
+    if (faltantesViaje.length > 0) {
+      setCamposInvalidos(new Set(faltantesViaje))
       setError('Completa todos los campos del viaje')
       return
     }
-    for (const menor of menoresNuevos) {
-      if (!menor.nombre.trim() || !menor.rut.trim() || !menor.fechaNacimiento) {
+
+    for (let i = 0; i < menoresNuevos.length; i++) {
+      const menor = menoresNuevos[i]
+      const faltantes: string[] = []
+      if (!menor.nombre.trim()) faltantes.push(`menor-${i}-nombre`)
+      if (!menor.rut.trim()) faltantes.push(`menor-${i}-rut`)
+      if (!menor.fechaNacimiento) faltantes.push(`menor-${i}-fechaNacimiento`)
+      if (faltantes.length > 0) {
+        setCamposInvalidos(new Set(faltantes))
         setError('Completa todos los datos de los menores agregados')
         return
       }
       if (!validarRut(menor.rut)) {
+        setCamposInvalidos(new Set([`menor-${i}-rut`]))
         setError(`El RUT del menor "${menor.nombre}" no es válido`)
         return
       }
       if (!esMenorDeEdad(menor.fechaNacimiento, fechaIngreso)) {
+        setCamposInvalidos(new Set([`menor-${i}-fechaNacimiento`]))
         setError(`La fecha de nacimiento de "${menor.nombre}" no corresponde a un menor de edad`)
         return
       }
-      if (!menor.carnetIdentidad || !menor.papelesAntecedentes) {
+      const faltantesArchivos: string[] = []
+      if (!menor.carnetIdentidad) faltantesArchivos.push(`menor-${i}-carnetIdentidad`)
+      if (!menor.papelesAntecedentes) faltantesArchivos.push(`menor-${i}-papelesAntecedentes`)
+      if (faltantesArchivos.length > 0) {
+        setCamposInvalidos(new Set(faltantesArchivos))
         setError(`Adjunta el carnet de identidad y los papeles de antecedentes de "${menor.nombre}"`)
         return
       }
       if (menor.requiereAutorizacion && !menor.permisoNotarial) {
+        setCamposInvalidos(new Set([`menor-${i}-permisoNotarial`]))
         setError(`Adjunta el permiso notarial de "${menor.nombre}" para poder continuar`)
         return
       }
     }
-    for (const mascota of mascotasNuevas) {
-      if (!mascota.tipoAnimal.trim() || !mascota.numeroChip.trim()) {
+    for (let i = 0; i < mascotasNuevas.length; i++) {
+      const mascota = mascotasNuevas[i]
+      const faltantes: string[] = []
+      if (!mascota.tipoAnimal.trim()) faltantes.push(`mascota-${i}-tipoAnimal`)
+      if (!mascota.numeroChip.trim()) faltantes.push(`mascota-${i}-numeroChip`)
+      if (faltantes.length > 0) {
+        setCamposInvalidos(new Set(faltantes))
         setError('Completa el tipo de animal y el número de chip de las mascotas agregadas')
         return
       }
-      if (!mascota.certificadoChip || !mascota.carnetVacunacion) {
+      const faltantesArchivos: string[] = []
+      if (!mascota.certificadoChip) faltantesArchivos.push(`mascota-${i}-certificadoChip`)
+      if (!mascota.carnetVacunacion) faltantesArchivos.push(`mascota-${i}-carnetVacunacion`)
+      if (faltantesArchivos.length > 0) {
+        setCamposInvalidos(new Set(faltantesArchivos))
         setError(`Adjunta el certificado del chip y el carnet de vacunación de "${mascota.tipoAnimal}"`)
         return
       }
@@ -353,14 +418,22 @@ function RegistroViaje() {
   // --- Paso 2: Vehículo ---
   const guardarVehiculoPrincipal = async () => {
     setError('')
-    if (!patente.trim() || !marca.trim() || !modelo.trim() || !anio) {
+    const faltantes: string[] = []
+    if (!patente.trim()) faltantes.push('patente')
+    if (!marca.trim()) faltantes.push('marca')
+    if (!modelo.trim()) faltantes.push('modelo')
+    if (!anio) faltantes.push('anio')
+    if (faltantes.length > 0) {
+      setCamposInvalidos(new Set(faltantes))
       setError('Completa todos los campos del vehículo principal')
       return
     }
     if (!permisoCirculacion) {
+      setCamposInvalidos(new Set(['permisoCirculacion']))
       setError('Adjunta el permiso de circulación del vehículo para poder continuar')
       return
     }
+    setCamposInvalidos(new Set())
     if (!idViaje) return
     setCargando(true)
     try {
@@ -386,13 +459,16 @@ function RegistroViaje() {
   const guardarRemolque = async () => {
     setError('')
     if (!patenteRemolque.trim()) {
+      setCamposInvalidos(new Set(['patenteRemolque']))
       setError('La patente del remolque es obligatoria')
       return
     }
     if (!permisoCirculacionRemolque) {
+      setCamposInvalidos(new Set(['permisoCirculacionRemolque']))
       setError('Adjunta el permiso de circulación del remolque para poder continuar')
       return
     }
+    setCamposInvalidos(new Set())
     if (!idViaje) return
     setCargando(true)
     try {
@@ -417,6 +493,7 @@ function RegistroViaje() {
   const omitirVehiculo = () => {
     setSinVehiculo(true)
     setError('')
+    setCamposInvalidos(new Set())
     setCurrentStep(2)
   }
 
@@ -426,13 +503,16 @@ function RegistroViaje() {
   const guardarDeclaracion = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setCamposInvalidos(new Set())
     if (!idViaje) return
 
     if (declaraDivisas && (!montoDivisas || Number(montoDivisas) <= 0)) {
+      setCamposInvalidos(new Set(['montoDivisas']))
       setError('Si declara divisas, indica un monto mayor a cero')
       return
     }
     if (declaraMercancias && !detalleMercancias.trim()) {
+      setCamposInvalidos(new Set(['detalleMercancias']))
       setError('Describe las mercancías declaradas')
       return
     }
@@ -514,15 +594,6 @@ function RegistroViaje() {
 
         <WizardStepper steps={STEPS} currentStep={currentStep} completedSteps={completedSteps} />
 
-        {error && (
-          <p
-            role="alert"
-            className="mb-3 rounded-md bg-estado-rechazado-bg px-2.5 py-2 text-[13px] text-estado-rechazado-text"
-          >
-            {error}
-          </p>
-        )}
-
         {/* ============ PASO 1 — Viaje ============ */}
         {currentStep === 0 && (
           <form onSubmit={guardarViaje}>
@@ -537,7 +608,8 @@ function RegistroViaje() {
                 type="date"
                 value={fechaIngreso}
                 onChange={(e) => setFechaIngreso(e.target.value)}
-                className={inputClass}
+                onFocus={() => limpiar('fechaIngreso')}
+                className={clase('fechaIngreso')}
               />
 
               <label className={labelClass} htmlFor="destino">
@@ -549,7 +621,8 @@ function RegistroViaje() {
                 placeholder="Ej: Buenos Aires, Argentina"
                 value={destino}
                 onChange={(e) => setDestino(e.target.value)}
-                className={inputClass}
+                onFocus={() => limpiar('destino')}
+                className={clase('destino')}
               />
 
               <label className={labelClass} htmlFor="pasoFronterizo">
@@ -559,7 +632,8 @@ function RegistroViaje() {
                 id="pasoFronterizo"
                 value={pasoFronterizo}
                 onChange={(e) => setPasoFronterizo(e.target.value)}
-                className={inputClass}
+                onFocus={() => limpiar('pasoFronterizo')}
+                className={clase('pasoFronterizo')}
               >
                 <option value="">Seleccionar…</option>
                 {PASOS_FRONTERIZOS.map((p) => (
@@ -576,7 +650,8 @@ function RegistroViaje() {
                 id="motivoViaje"
                 value={motivoViaje}
                 onChange={(e) => setMotivoViaje(e.target.value)}
-                className={inputClass}
+                onFocus={() => limpiar('motivoViaje')}
+                className={clase('motivoViaje')}
               >
                 <option value="">Seleccionar…</option>
                 {MOTIVOS.map((m) => (
@@ -630,8 +705,9 @@ function RegistroViaje() {
                     placeholder="Nombre completo"
                     value={menor.nombre}
                     onChange={(e) => actualizarFilaMenor(index, 'nombre', e.target.value)}
+                    onFocus={() => limpiar(`menor-${index}-nombre`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`menor-${index}-nombre`)}
                   />
 
                   <label className={labelClass}>RUT del Menor</label>
@@ -639,9 +715,12 @@ function RegistroViaje() {
                     type="text"
                     placeholder="12345678-9"
                     value={menor.rut}
-                    onChange={(e) => actualizarFilaMenor(index, 'rut', e.target.value)}
+                    onChange={(e) =>
+                      actualizarFilaMenor(index, 'rut', formatearRutInput(e.target.value))
+                    }
+                    onFocus={() => limpiar(`menor-${index}-rut`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`menor-${index}-rut`)}
                   />
 
                   <label className={labelClass}>Fecha de Nacimiento</label>
@@ -651,8 +730,9 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarFilaMenor(index, 'fechaNacimiento', e.target.value)
                     }
+                    onFocus={() => limpiar(`menor-${index}-fechaNacimiento`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`menor-${index}-fechaNacimiento`)}
                   />
 
                   <label className={labelClass}>¿Requiere Autorización Notarial?</label>
@@ -675,8 +755,9 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMenor(index, 'carnetIdentidad', e.target.files?.[0] ?? null)
                     }
+                    onClick={() => limpiar(`menor-${index}-carnetIdentidad`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`menor-${index}-carnetIdentidad`)}
                   />
 
                   <label className={labelClass}>Papeles de antecedentes del menor</label>
@@ -686,8 +767,9 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMenor(index, 'papelesAntecedentes', e.target.files?.[0] ?? null)
                     }
+                    onClick={() => limpiar(`menor-${index}-papelesAntecedentes`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`menor-${index}-papelesAntecedentes`)}
                   />
 
                   {menor.requiereAutorizacion && (
@@ -699,8 +781,9 @@ function RegistroViaje() {
                         onChange={(e) =>
                           actualizarArchivoMenor(index, 'permisoNotarial', e.target.files?.[0] ?? null)
                         }
+                        onClick={() => limpiar(`menor-${index}-permisoNotarial`)}
                         disabled={cargando}
-                        className={inputClass}
+                        className={clase(`menor-${index}-permisoNotarial`)}
                       />
                     </>
                   )}
@@ -761,8 +844,9 @@ function RegistroViaje() {
                     placeholder="Ej: Perro, Gato"
                     value={mascota.tipoAnimal}
                     onChange={(e) => actualizarFilaMascota(index, 'tipoAnimal', e.target.value)}
+                    onFocus={() => limpiar(`mascota-${index}-tipoAnimal`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`mascota-${index}-tipoAnimal`)}
                   />
 
                   <label className={labelClass}>Número de chip</label>
@@ -771,8 +855,9 @@ function RegistroViaje() {
                     placeholder="Ej: 981000000000000"
                     value={mascota.numeroChip}
                     onChange={(e) => actualizarFilaMascota(index, 'numeroChip', e.target.value)}
+                    onFocus={() => limpiar(`mascota-${index}-numeroChip`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`mascota-${index}-numeroChip`)}
                   />
 
                   <label className={labelClass}>Certificado del chip</label>
@@ -782,8 +867,9 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMascota(index, 'certificadoChip', e.target.files?.[0] ?? null)
                     }
+                    onClick={() => limpiar(`mascota-${index}-certificadoChip`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`mascota-${index}-certificadoChip`)}
                   />
 
                   <label className={labelClass}>Carnet de vacunación</label>
@@ -793,8 +879,9 @@ function RegistroViaje() {
                     onChange={(e) =>
                       actualizarArchivoMascota(index, 'carnetVacunacion', e.target.files?.[0] ?? null)
                     }
+                    onClick={() => limpiar(`mascota-${index}-carnetVacunacion`)}
                     disabled={cargando}
-                    className={inputClass}
+                    className={clase(`mascota-${index}-carnetVacunacion`)}
                   />
                 </div>
               ))}
@@ -809,6 +896,7 @@ function RegistroViaje() {
               </button>
             </div>
 
+            <ErrorPaso mensaje={error} />
             <button type="submit" disabled={cargando} className={btnPrimario}>
               {cargando ? 'Guardando…' : 'Guardar y continuar'}
             </button>
@@ -841,8 +929,9 @@ function RegistroViaje() {
                     placeholder="Ej: ABCD12"
                     value={patente}
                     onChange={(e) => setPatente(e.target.value)}
+                    onFocus={() => limpiar('patente')}
                     disabled={principalGuardado}
-                    className={inputClass}
+                    className={clase('patente')}
                   />
                   <label className={labelClass}>Marca</label>
                   <input
@@ -850,8 +939,9 @@ function RegistroViaje() {
                     placeholder="Ej: Toyota"
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
+                    onFocus={() => limpiar('marca')}
                     disabled={principalGuardado}
-                    className={inputClass}
+                    className={clase('marca')}
                   />
                   <label className={labelClass}>Modelo</label>
                   <input
@@ -859,8 +949,9 @@ function RegistroViaje() {
                     placeholder="Ej: Corolla"
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
+                    onFocus={() => limpiar('modelo')}
                     disabled={principalGuardado}
-                    className={inputClass}
+                    className={clase('modelo')}
                   />
                   <label className={labelClass}>Año</label>
                   <input
@@ -870,8 +961,9 @@ function RegistroViaje() {
                     max={new Date().getFullYear() + 1}
                     value={anio}
                     onChange={(e) => setAnio(e.target.value)}
+                    onFocus={() => limpiar('anio')}
                     disabled={principalGuardado}
-                    className={inputClass}
+                    className={clase('anio')}
                   />
                   <label className={labelClass}>Permiso de circulación</label>
                   <input
@@ -879,18 +971,22 @@ function RegistroViaje() {
                     accept=".pdf,.jpg,.jpeg,.png"
                     disabled={principalGuardado}
                     onChange={(e) => setPermisoCirculacion(e.target.files?.[0] ?? null)}
-                    className={inputClass}
+                    onClick={() => limpiar('permisoCirculacion')}
+                    className={clase('permisoCirculacion')}
                   />
 
                   {!principalGuardado ? (
-                    <button
-                      type="button"
-                      onClick={guardarVehiculoPrincipal}
-                      disabled={cargando}
-                      className={btnPrimario}
-                    >
-                      {cargando ? 'Guardando…' : 'Guardar vehículo'}
-                    </button>
+                    <>
+                      <ErrorPaso mensaje={error} />
+                      <button
+                        type="button"
+                        onClick={guardarVehiculoPrincipal}
+                        disabled={cargando}
+                        className={btnPrimario}
+                      >
+                        {cargando ? 'Guardando…' : 'Guardar vehículo'}
+                      </button>
+                    </>
                   ) : (
                     <div className="rounded-md bg-estado-aprobado-bg px-3 py-2 text-[13px] font-semibold text-estado-aprobado-text">
                       ✓ Vehículo principal guardado
@@ -920,8 +1016,9 @@ function RegistroViaje() {
                       placeholder="Ej: RM1234"
                       value={patenteRemolque}
                       onChange={(e) => setPatenteRemolque(e.target.value)}
+                      onFocus={() => limpiar('patenteRemolque')}
                       disabled={remolqueGuardado}
-                      className={inputClass}
+                      className={clase('patenteRemolque')}
                     />
                     <label className={labelClass}>Marca (opcional)</label>
                     <input
@@ -945,17 +1042,21 @@ function RegistroViaje() {
                       accept=".pdf,.jpg,.jpeg,.png"
                       disabled={remolqueGuardado}
                       onChange={(e) => setPermisoCirculacionRemolque(e.target.files?.[0] ?? null)}
-                      className={inputClass}
+                      onClick={() => limpiar('permisoCirculacionRemolque')}
+                      className={clase('permisoCirculacionRemolque')}
                     />
                     {!remolqueGuardado ? (
-                      <button
-                        type="button"
-                        onClick={guardarRemolque}
-                        disabled={cargando}
-                        className={btnPrimario}
-                      >
-                        {cargando ? 'Guardando…' : 'Guardar remolque'}
-                      </button>
+                      <>
+                        <ErrorPaso mensaje={error} />
+                        <button
+                          type="button"
+                          onClick={guardarRemolque}
+                          disabled={cargando}
+                          className={btnPrimario}
+                        >
+                          {cargando ? 'Guardando…' : 'Guardar remolque'}
+                        </button>
+                      </>
                     ) : (
                       <div className="rounded-md bg-estado-aprobado-bg px-3 py-2 text-[13px] font-semibold text-estado-aprobado-text">
                         ✓ Remolque guardado
@@ -1072,7 +1173,8 @@ function RegistroViaje() {
                       placeholder="Ej: 12000"
                       value={montoDivisas}
                       onChange={(e) => setMontoDivisas(e.target.value)}
-                      className={inputClass}
+                      onFocus={() => limpiar('montoDivisas')}
+                      className={clase('montoDivisas')}
                     />
                   </div>
                   <div>
@@ -1110,13 +1212,15 @@ function RegistroViaje() {
                   <textarea
                     value={detalleMercancias}
                     onChange={(e) => setDetalleMercancias(e.target.value)}
+                    onFocus={() => limpiar('detalleMercancias')}
                     placeholder="Describa las mercancías…"
-                    className={`${inputClass} min-h-[80px] resize-y`}
+                    className={`${clase('detalleMercancias')} min-h-[80px] resize-y`}
                   />
                 </>
               )}
             </div>
 
+            <ErrorPaso mensaje={error} />
             <button type="submit" disabled={cargando} className={btnPrimario}>
               {cargando ? 'Enviando…' : 'Firmar y continuar'}
             </button>
@@ -1135,6 +1239,7 @@ function RegistroViaje() {
                 Tu expediente está completo. Genera el código QR que presentarás en la
                 caseta de fiscalización.
               </p>
+              <ErrorPaso mensaje={error} />
               <button type="button" onClick={generarQr} disabled={cargando} className={btnPrimario}>
                 {cargando ? 'Generando…' : 'Generar mi código QR'}
               </button>

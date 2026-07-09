@@ -6,6 +6,7 @@ import {
   type AuditoriaAdminItem,
 } from '../services/adminService'
 import { mensajeDeError } from '../services/authService'
+import { formatearFechaHora } from '../utils/fecha'
 
 /** Etiqueta y color del badge según la acción registrada en la auditoría (RF05, RF09). */
 function accionBadge(accion: string): { texto: string; clases: string } {
@@ -25,10 +26,7 @@ function accionBadge(accion: string): { texto: string; clases: string } {
   }
 }
 
-function formatoFechaHora(fecha: string): string {
-  const d = new Date(fecha)
-  return Number.isNaN(d.getTime()) ? fecha : d.toLocaleString('es-CL')
-}
+const formatoFechaHora = formatearFechaHora
 
 /**
  * Administración del sistema (RF06, RF09) — visible solo para ADMIN.

@@ -11,6 +11,7 @@ import {
   type Viaje,
 } from '../services/viajeService'
 import { estadoBadge } from '../utils/estado'
+import { formatearFecha } from '../utils/fecha'
 import { reenviarVerificacion, mensajeDeError } from '../services/authService'
 
 const STORAGE_ID_VIAJE = 'sffe_id_viaje_activo'
@@ -176,7 +177,7 @@ function Dashboard() {
                       {viaje.pasoFronterizo || '—'}
                     </div>
                     <div>
-                      <span className="font-semibold">Fecha:</span> {viaje.fechaIngreso}
+                      <span className="font-semibold">Fecha:</span> {formatearFecha(viaje.fechaIngreso)}
                     </div>
                   </div>
 

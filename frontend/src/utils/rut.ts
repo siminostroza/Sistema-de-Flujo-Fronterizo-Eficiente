@@ -36,3 +36,20 @@ export function validarRut(rutEntrada: string): boolean {
   }
   return dvCalculado === dv
 }
+
+/**
+ * Autoformatea un RUT mientras se escribe: deja solo dígitos y K/k, e
+ * inserta el guion antes del dígito verificador. Sin esto, un RUT real
+ * tipeado sin guion (ej. "210132813", muy común al copiar desde una
+ * cédula) fallaba {@link validarRut} por formato aunque el módulo 11 diera
+ * válido, y se reportaba como "RUT inválido" sin serlo.
+ */
+export function formatearRutInput(valor: string): string {
+  const limpio = valor.replace(/[^0-9kK]/g, '').toUpperCase()
+  if (limpio.length <= 1) {
+    return limpio
+  }
+  const cuerpo = limpio.slice(0, -1)
+  const dv = limpio.slice(-1)
+  return `${cuerpo}-${dv}`
+}

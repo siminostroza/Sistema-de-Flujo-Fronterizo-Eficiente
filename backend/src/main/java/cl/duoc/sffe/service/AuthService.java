@@ -1,11 +1,13 @@
 package cl.duoc.sffe.service;
 
+import cl.duoc.sffe.dto.ActualizarCorreoRequest;
 import cl.duoc.sffe.dto.LoginRequest;
 import cl.duoc.sffe.dto.LoginResponse;
 import cl.duoc.sffe.dto.OlvidePasswordRequest;
 import cl.duoc.sffe.dto.RegisterRequest;
 import cl.duoc.sffe.dto.RegisterResponse;
 import cl.duoc.sffe.dto.RestablecerPasswordRequest;
+import cl.duoc.sffe.dto.SolicitarCambioPasswordResponse;
 import cl.duoc.sffe.exception.AuthException;
 import cl.duoc.sffe.model.Rol;
 import cl.duoc.sffe.model.TipoDocumento;
@@ -222,6 +224,56 @@ public class AuthService {
         usuario.setTokenResetExpira(null);
         usuarioRepository.save(usuario);
         loginAttemptService.registrarExito(usuario.getIdentificador());
+    }
+
+    /**
+     * Cambia el correo del pasajero autenticado (RF01). Queda marcado como no
+     * verificado de nuevo —igual que un registro nuevo— y se envía un correo
+     * de verificación a la dirección nueva, nunca a la anterior.
+     */
+    @Transactional
+    public void actualizarCorreo(String identificador, ActualizarCorreoRequest request) {
+        Usuario usuario = usuarioRepository.findByIdentificador(identificador)
+                .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "El usuario de la sesión no existe"));
+
+        String nuevoCorreo = request.correo().trim().toLowerCase();
+        if (nuevoCorreo.equals(usuario.getCorreo())) {
+            return;
+        }
+        if (usuarioRepository.existsByCorreo(nuevoCorreo)) {
+            throw new AuthException(HttpStatus.CONFLICT, "Ya existe una cuenta registrada con ese correo");
+        }
+
+        String tokenVerificacion = UUID.randomUUID().toString();
+        usuario.setCorreo(nuevoCorreo);
+        usuario.setCorreoVerificado(false);
+        usuario.setTokenVerificacionCorreo(tokenVerificacion);
+        usuario.setTokenVerificacionExpira(LocalDateTime.now().plusHours(VERIFICACION_CORREO_HORAS));
+        usuarioRepository.save(usuario);
+        emailService.enviarVerificacionCorreo(usuario, tokenVerificacion);
+    }
+
+    /**
+     * Inicia el cambio de contraseña desde el perfil del pasajero autenticado
+     * (RF01): mismo mecanismo de token que {@link #olvidePassword}, pero para
+     * la sesión activa en vez de un identificador/correo sin autenticar. El
+     * token viaja también en la respuesta a propósito —ver
+     * {@link SolicitarCambioPasswordResponse}— para que el prototipo pueda
+     * simular en pruebas la apertura del enlace del correo sin depender de
+     * revisar Mailpit.
+     */
+    @Transactional
+    public SolicitarCambioPasswordResponse solicitarCambioPassword(String identificador) {
+        Usuario usuario = usuarioRepository.findByIdentificador(identificador)
+                .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "El usuario de la sesión no existe"));
+
+        String token = UUID.randomUUID().toString();
+        usuario.setTokenResetPassword(token);
+        usuario.setTokenResetExpira(LocalDateTime.now().plusMinutes(RESET_PASSWORD_MINUTOS));
+        usuarioRepository.save(usuario);
+        emailService.enviarRecuperacionPassword(usuario, token);
+        return new SolicitarCambioPasswordResponse(
+                "Te enviamos un correo con el enlace para cambiar tu contraseña", token);
     }
 
     /**

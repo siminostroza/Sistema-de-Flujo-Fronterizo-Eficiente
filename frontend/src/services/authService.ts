@@ -100,6 +100,29 @@ export async function restablecerPassword(
   return data
 }
 
+/** PUT /api/auth/perfil/correo — cambia el correo del pasajero autenticado (queda sin verificar de nuevo). */
+export async function actualizarCorreo(correo: string): Promise<MensajeResponse> {
+  const { data } = await api.put<MensajeResponse>('/auth/perfil/correo', { correo })
+  return data
+}
+
+export interface SolicitarCambioPasswordResponse {
+  mensaje: string
+  /**
+   * Token de restablecimiento, expuesto solo porque este endpoint exige
+   * sesión activa (ver nota en el backend). Sirve para que, en el
+   * prototipo de pruebas, el botón "Cambiar contraseña" abra directamente
+   * la pestaña de restablecimiento sin depender de revisar Mailpit.
+   */
+  token: string
+}
+
+/** POST /api/auth/perfil/solicitar-cambio-password — envía el correo de cambio de contraseña del pasajero autenticado. */
+export async function solicitarCambioPassword(): Promise<SolicitarCambioPasswordResponse> {
+  const { data } = await api.post<SolicitarCambioPasswordResponse>('/auth/perfil/solicitar-cambio-password')
+  return data
+}
+
 /** Extrae el mensaje de error específico devuelto por el backend (RF01). */
 export function mensajeDeError(error: unknown): string {
   if (

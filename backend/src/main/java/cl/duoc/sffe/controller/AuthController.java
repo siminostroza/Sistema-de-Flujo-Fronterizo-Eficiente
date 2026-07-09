@@ -1,5 +1,6 @@
 package cl.duoc.sffe.controller;
 
+import cl.duoc.sffe.dto.ActualizarCorreoRequest;
 import cl.duoc.sffe.dto.LoginRequest;
 import cl.duoc.sffe.dto.LoginResponse;
 import cl.duoc.sffe.dto.MensajeResponse;
@@ -7,6 +8,7 @@ import cl.duoc.sffe.dto.OlvidePasswordRequest;
 import cl.duoc.sffe.dto.RegisterRequest;
 import cl.duoc.sffe.dto.RegisterResponse;
 import cl.duoc.sffe.dto.RestablecerPasswordRequest;
+import cl.duoc.sffe.dto.SolicitarCambioPasswordResponse;
 import cl.duoc.sffe.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -95,5 +98,28 @@ public class AuthController {
             @Valid @RequestBody RestablecerPasswordRequest request) {
         authService.restablecerPassword(request);
         return ResponseEntity.ok(new MensajeResponse("Contraseña actualizada. Ya puedes iniciar sesión"));
+    }
+
+    /** Cambia el correo del pasajero autenticado; vuelve a quedar sin verificar (RF01). */
+    @PutMapping("/perfil/correo")
+    @PreAuthorize("hasRole('PASAJERO')")
+    public ResponseEntity<MensajeResponse> actualizarCorreo(
+            @Valid @RequestBody ActualizarCorreoRequest request, Authentication authentication) {
+        authService.actualizarCorreo(authentication.getName(), request);
+        return ResponseEntity.ok(new MensajeResponse(
+                "Correo actualizado. Te enviamos un enlace para verificar la nueva dirección"));
+    }
+
+    /**
+     * Envía el correo para cambiar la contraseña desde el perfil del pasajero
+     * autenticado (RF01). A diferencia de {@code /olvide-password}, aquí la
+     * respuesta incluye el token (ver {@link SolicitarCambioPasswordResponse})
+     * para que el prototipo pueda simular en pruebas la apertura del enlace.
+     */
+    @PostMapping("/perfil/solicitar-cambio-password")
+    @PreAuthorize("hasRole('PASAJERO')")
+    public ResponseEntity<SolicitarCambioPasswordResponse> solicitarCambioPassword(
+            Authentication authentication) {
+        return ResponseEntity.ok(authService.solicitarCambioPassword(authentication.getName()));
     }
 }

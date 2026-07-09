@@ -25,6 +25,8 @@ interface AuthContextType {
   isAuthenticated: () => boolean
   /** Actualiza el estado de verificación del correo tras confirmarlo (RF01), sin recargar la sesión. */
   marcarCorreoVerificado: () => void
+  /** Actualiza el correo de la sesión tras cambiarlo desde el perfil (RF01); vuelve a quedar sin verificar. */
+  actualizarCorreoSesion: (correo: string) => void
 }
 
 const STORAGE_KEY = 'sffe_token'
@@ -84,8 +86,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSesion((prev) => (prev ? { ...prev, correoVerificado: true } : prev))
   }
 
+  const actualizarCorreoSesion = (correo: string) => {
+    localStorage.setItem(STORAGE_CORREO, correo)
+    localStorage.setItem(STORAGE_CORREO_VERIFICADO, 'false')
+    setSesion((prev) => (prev ? { ...prev, correo, correoVerificado: false } : prev))
+  }
+
   return (
-    <AuthContext.Provider value={{ sesion, login, logout, isAuthenticated, marcarCorreoVerificado }}>
+    <AuthContext.Provider
+      value={{ sesion, login, logout, isAuthenticated, marcarCorreoVerificado, actualizarCorreoSesion }}
+    >
       {children}
     </AuthContext.Provider>
   )
