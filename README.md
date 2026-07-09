@@ -8,12 +8,20 @@ Sistema web para digitalizar los trámites de cruce fronterizo terrestre en Chil
 - Docker Desktop (recomendado), o bien:
 - Java 21 + Maven, Node.js 22+, MySQL 8
 
-## Inicio con un clic (Windows)
+## Inicio con un clic
 
-Con Docker Desktop instalado y abierto, haz doble clic en **`iniciar-sffe.bat`**.
-El script levanta los servicios, espera a que el backend esté listo, abre el
-navegador en `http://localhost` y muestra las cuentas de prueba en pantalla.
-Para detener el sistema, haz doble clic en **`detener-sffe.bat`**.
+Cada sistema operativo tiene su propio lanzador (nombre distinto a propósito,
+para no confundirlos):
+
+- **Windows**: con Docker Desktop instalado y abierto, doble clic en
+  **`iniciar-sffe-windows.bat`**. Para detener: **`detener-sffe-windows.bat`**.
+- **Linux**: con Docker instalado, ejecuta **`./iniciar-sffe-linux.sh`**
+  (o dale doble clic si tu gestor de archivos permite ejecutar scripts).
+  Para detener: **`./detener-sffe-linux.sh`**.
+
+Ambos lanzadores levantan los servicios, esperan a que el backend esté listo,
+abren el navegador en `http://localhost` y muestran las cuentas de prueba en
+pantalla.
 
 ## Inicio rápido con Docker
 
